@@ -36,17 +36,18 @@ int main(int argc, char** argv){
         exit(0);
     }
 
+    char buff[BUFSIZ];
+
     // 자식 프로세스에 내릴 명령 선택
     struct command input;
     input.func = t_blockPort;
-    input.size = sizeof(struct connInfo);
     // input.func = t_blockIp;
+    input.size = sizeof(struct connInfo);
+    memcpy(buff, &input, sizeof(input));
+    memcpy(buff+sizeof(input), &ci, input.size);
     
     // 명령 전달
-    if(write(pipeMainToSub[1], &input, sizeof(input)) == -1)
-        perror("write");
-    // 작업을 위한 인자 전달
-    if(write(pipeMainToSub[1], &ci, input.size) == -1)
+    if(write(pipeMainToSub[1], buff, sizeof(input)+input.size) == -1)
         perror("write");
     printf("worked?\n");
 
@@ -63,11 +64,10 @@ int main(int argc, char** argv){
     // 실행중인 차단 프로세스 종료하기
     input.func = t_deleteTable;
     input.size = sizeof(targetPid);
+    memcpy(buff, &input, sizeof(input));
+    memcpy(buff+sizeof(input), &ci, input.size);
     // 명령 전달
-    if(write(pipeMainToSub[1], &input, sizeof(input)) == -1)
-        perror("write");
-    // 명령을 위한 인자 전달
-    if(write(pipeMainToSub[1], &targetPid, input.size) == -1)
+    if(write(pipeMainToSub[1], &input, sizeof(input)+input.size) == -1)
         perror("write");
     printf("worked?\n");
     
