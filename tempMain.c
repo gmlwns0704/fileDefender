@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int main(int argc, char** argv){
     if(argc != 4){
@@ -16,6 +17,12 @@ int main(int argc, char** argv){
     strcpy(ci.interface, argv[1]);
     inet_aton(argv[2], &(ci.ip));
     ci.port = atoi(argv[3]);
+
+    struct procInfo procInfo;
+    if(getProcInfoByPort(&procInfo, ci.port) == 0)
+        printf("process not found\n");
+    else
+        printProcInfo(&procInfo);
 
     int pipeMainToSub[2];
     int pipeSubToMain[2];
@@ -29,8 +36,8 @@ int main(int argc, char** argv){
     }
 
     enum funcTable func;
-    // func = t_blockPort;
-    func = t_blockIp;
+    func = t_blockPort;
+    // func = t_blockIp;
     if(write(pipeMainToSub[1], &func, sizeof(func)) == -1)
         perror("write");
     if(write(pipeMainToSub[1], &ci, sizeof(struct connInfo)) == -1)

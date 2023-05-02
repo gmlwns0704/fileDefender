@@ -79,7 +79,6 @@ void blockController(int fdread, int fdwrite){
         // 아직 NULL인 pidList의 인덱스 찾기
         int idx;
         for(idx = 0; idx < PLISTSIZE && pidList[idx]; idx++);
-
         printf("func: %d\nidx: %d\n", func, idx);
         pid_t newPid;
         switch(func){
