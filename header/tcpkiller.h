@@ -3,9 +3,15 @@
 #include <arpa/inet.h>
 
 enum funcTable{
-    t_blockPort = 1,
-    t_blockIp,
-    t_deleteTable
+    t_blockPort = 1, //struct connInfo
+    t_blockIp, //struct connInfo
+    t_blockCustom, //size_t(strlen), string
+    t_deleteTable //pid_t
+};
+
+struct command{
+    enum funcTable func;
+    size_t size;
 };
 
 struct connInfo{
