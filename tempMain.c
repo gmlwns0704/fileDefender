@@ -42,7 +42,8 @@ int main(int argc, char** argv){
     struct command input;
     input.func = t_blockPort;
     // input.func = t_blockIp;
-    input.size = sizeof(struct connInfo);
+    input.size = T_BLOCKPORT_SIZE;
+    // 하나의 버퍼에 병합
     memcpy(buff, &input, sizeof(input));
     memcpy(buff+sizeof(input), &ci, input.size);
     
@@ -63,7 +64,8 @@ int main(int argc, char** argv){
     
     // 실행중인 차단 프로세스 종료하기
     input.func = t_deleteTable;
-    input.size = sizeof(targetPid);
+    input.size = T_DELETETABLE_SIZE;
+    // 하나의 버퍼에 병합
     memcpy(buff, &input, sizeof(input));
     memcpy(buff+sizeof(input), &ci, input.size);
     // 명령 전달

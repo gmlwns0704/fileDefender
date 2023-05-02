@@ -8,6 +8,10 @@ enum funcTable{
     t_blockCustom, //size_t(strlen), string
     t_deleteTable //pid_t
 };
+#define T_BLOCKPORT_SIZE (sizeof(struct connInfo))
+#define T_BLOCKIP_SIZE (sizeof(struct connInfo))
+// #define T_BLOCKCUSTOM_SIZE (이건 따라오는 문자열 길이만큼)
+#define T_DELETETABLE_SIZE (sizeof(pid_t))
 
 struct command{
     enum funcTable func;
