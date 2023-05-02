@@ -29,34 +29,45 @@ int main(int argc, char** argv){
     pipe(pipeMainToSub);
     pipe(pipeSubToMain);
 
+    // 자식프로세스 생성
     pid_t pid = fork();
     if(pid == 0){
         blockController(pipeMainToSub[0], pipeSubToMain[1]);
         exit(0);
     }
 
-    enum funcTable func;
-    func = t_blockPort;
-    // func = t_blockIp;
-    if(write(pipeMainToSub[1], &func, sizeof(func)) == -1)
+    // 자식 프로세스에 내릴 명령 선택
+    struct command input;
+    input.func = t_blockPort;
+    input.size = sizeof(struct connInfo);
+    // input.func = t_blockIp;
+    
+    // 명령 전달
+    if(write(pipeMainToSub[1], &input, sizeof(input)) == -1)
         perror("write");
-    if(write(pipeMainToSub[1], &ci, sizeof(struct connInfo)) == -1)
+    // 작업을 위한 인자 전달
+    if(write(pipeMainToSub[1], &ci, input.size) == -1)
         perror("write");
     printf("worked?\n");
 
     sleep(10);
     
     printf("now remove it...\n");
+    // 자식 프로세스에서 반환한 pid값 받기
     int targetPid;
     if(read(pipeSubToMain[0], &targetPid, sizeof(targetPid)) == -1){
         perror("read");
         exit(1);
     }
     
-    func = t_deleteTable;
-    if(write(pipeMainToSub[1], &func, sizeof(func)) == -1)
+    // 실행중인 차단 프로세스 종료하기
+    input.func = t_deleteTable;
+    input.size = sizeof(targetPid);
+    // 명령 전달
+    if(write(pipeMainToSub[1], &input, sizeof(input)) == -1)
         perror("write");
-    if(write(pipeMainToSub[1], &targetPid, sizeof(int)) == -1)
+    // 명령을 위한 인자 전달
+    if(write(pipeMainToSub[1], &targetPid, input.size) == -1)
         perror("write");
     printf("worked?\n");
     

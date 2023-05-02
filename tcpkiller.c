@@ -57,9 +57,42 @@ int blockIp(struct connInfo* connInfo){ //특정 인터페이스의 특정 src o
     return pid; // subprocess의 pid 리턴
 }
 
+int blockCustom(char* command){
+    // command를 ' '단위로 commands에 parsing
+    char** commands;
+    int count = 1;
+    for(int i = 0; i < strlen(command); i++)
+        if(command[i] == ' ')
+            count++;
+        
+    commands = calloc(count, sizeof(char*));
+    for(int i = 0; i < count; i++){
+        int offset = 0;
+        char buff[256] = "";
+        sscanf(command + offset, "%s", buff);
+        offset += strlen(buff)+1;
+        commands[i] = calloc(strlen(buff)+1, sizeof(char));
+    }
+
+    pid_t pid = fork();
+    if(pid < 0){
+        perror("fork");
+    }
+    else if(pid == 0){
+        // ex: "tcpkill -i lo port 9001"
+        execvp("tcpkill", commands);
+
+        perror("execvp, we must can not see it");
+        exit(1);
+    }
+
+    CHKPID(pid);
+    return pid; // subprocess의 pid 리턴
+}
+
 void blockController(int fdread, int fdwrite){
     int readLen;
-    enum funcTable func;
+    struct command input;
     char buff[BUFSIZ];
     pid_t pidList[PLISTSIZE];
     memset(pidList, 0, sizeof(pidList));
@@ -68,27 +101,27 @@ void blockController(int fdread, int fdwrite){
     while(1){
         printf("read...\n");
         // 커맨드 읽기
-        readLen = read(fdread, &func, sizeof(func));
+        readLen = read(fdread, &input, sizeof(struct command));
         // 읽기 오류
-        if(readLen < 0){
+        if(readLen <= 0){
             perror("read");
             continue;
         }
-        printf("readLen: %d\n", readLen);
+        // 파이프에서 작업을 위한 데이터 읽어옴
+        readLen = read(fdread, buff, input.size);
+        if(readLen <= 0){
+            perror("read");
+            continue;
+        }
+        // printf("readLen: %d\n", readLen);
 
         // 아직 NULL인 pidList의 인덱스 찾기
         int idx;
         for(idx = 0; idx < PLISTSIZE && pidList[idx]; idx++);
-        printf("func: %d\nidx: %d\n", func, idx);
+        printf("func: %d\nidx: %d\n", input.func, idx);
         pid_t newPid;
-        switch(func){
+        switch(input.func){
             case t_blockPort:
-                // 파이프에서 작업을 위한 데이터 읽어옴
-                readLen = read(fdread, buff, sizeof(struct connInfo));
-                if(readLen == 0){
-                    perror("read");
-                    continue;
-                }
                 newPid = blockPort((struct connInfo*)buff);
                 pidList[idx] = newPid;
                 if(write(fdwrite, &newPid, sizeof(pid_t)) == -1)
@@ -96,30 +129,26 @@ void blockController(int fdread, int fdwrite){
                 break;
             
             case t_blockIp:
-                // 파이프에서 작업을 위한 데이터 읽어옴
-                readLen = read(fdread, buff, sizeof(struct connInfo));
-                if(readLen == 0){
-                    perror("read");
-                    continue;
-                }
                 newPid = blockIp((struct connInfo*)buff);
                 pidList[idx] = newPid;
                 if(write(fdwrite, &newPid, sizeof(pid_t)) == -1)
                     perror("write");
                 break;
+            
+            case t_blockCustom:
+                newPid = blockCustom(buff);
+                pidList[idx] = newPid;
+                if(write(fdwrite, &newPid, sizeof(pid_t)) == -1)
+                    perror("write");
+                break;
 
-            case t_deleteTable:
-                // 파이프에서 작업을 위한 데이터 읽어옴
-                readLen = read(fdread, buff, sizeof(int));
-                if(readLen == 0){
-                    fprintf(stderr, "E: readLen is 0\n");
-                    continue;
-                }
+            case t_deleteTable:{
                 // 삭제할 인덱스 탐색
                 int targetIdx;
                 for(targetIdx = 0; targetIdx < PLISTSIZE && pidList[targetIdx] != *((int*)buff); targetIdx++);
                 kill(pidList[targetIdx], SIGINT);
                 pidList[targetIdx] = 0;
+            }
                 break;
 
         }
