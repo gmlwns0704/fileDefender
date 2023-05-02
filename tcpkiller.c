@@ -8,7 +8,7 @@
 
 #define PLISTSIZE 256 // pidList의 개수
 
-// 해당 pid의 프로세스가 실행되고 있는지 확인 (디버깅 체크용)
+// 해당 pid의 프로세스가 실행되고 있는지 확인 (디버깅용)
 #define CHKPID(pid) {\
     char CHKPID_TMP[100];\
     sprintf(CHKPID_TMP, "ps aux | grep %u | grep -v grep", (pid));\
