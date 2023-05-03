@@ -83,7 +83,7 @@ int getMulProcInfoByPort(struct procInfo* infoArr, size_t num, int port){
     sprintf(command, "netstat -ntlp | grep -E [0-9]\\+.[0-9]\\+.[0-9]\\+.[0-9]*:%d\\+' '", port);
     
     //결과 버퍼
-    memset(info, 0, sizeof(struct procInfo));
+    memset(infoAddr, 0, sizeof(struct procInfo)*num);
     
     FILE* f = popen(command, "r");
     if (f == NULL){
