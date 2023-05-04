@@ -57,7 +57,7 @@ int blockIp(struct connInfo* connInfo){ //특정 인터페이스의 특정 src o
     return pid; // subprocess의 pid 리턴
 }
 
-int blockCustom(char* command){
+int blockCustom(char* command){ //직접 명령어 입력해서 block (ex: "tcpkill -i lo port 80")
     // command를 ' '단위로 commands에 parsing
     char** commands;
     int count = 1;
