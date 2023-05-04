@@ -72,3 +72,64 @@ struct procInfo* getProcInfoByPort(struct procInfo* info, int port){
 
     return info;
 }
+
+int getMulProcInfoByPort(struct procInfo* infoArr, size_t num, int port){
+    // 명령어 출력 결과 버퍼
+    char buff[BUFSIZ];
+    memset(buff, 0, sizeof(buff));
+
+    // 명령어 설정
+    char command[BUFSIZ];
+    // netstat으로 읽고, 정규표현식으로 grep (양식: "XXX.XXX.XXX.XXX:[port] ")
+    sprintf(command, "netstat -ntlp | grep -E [0-9]\\+.[0-9]\\+.[0-9]\\+.[0-9]*:%d\\+' '", port);
+    
+    //결과 버퍼
+    memset(infoArr, 0, sizeof(struct procInfo)*num);
+    
+    FILE* f = popen(command, "r");
+    if (f == NULL){
+        perror("popen");
+        pclose(f);
+        return -1;
+    }
+    fread(buff, sizeof(buff), 1, f);
+    if (strlen(buff) < 0){
+        perror("fread");
+        pclose(f);
+        return -1;
+    }
+    else if(strlen(buff) == 0){
+        fprintf(stderr, "process not found\n");
+        pclose(f);
+        return -1;
+    }
+
+    // printf(buff);
+    int offset = 0;
+    int count = 0;
+    for(count = 0; count < num; count++){
+        char line[BUFSIZ];
+        struct procInfo* info;
+
+        sscanf(buff + offset, "%[^\n]\n", line);
+        offset += strlen(line)+1;
+        info = (struct procInfo*)((struct procInfo*)infoArr + count);
+
+        char localAddrBuff[32];
+        char foreignAddrBuff[32];
+        // Proto Recv-Q Send-Q Local_Address Foreign_Address State PID/Program name
+        sscanf(line, "%s %*d %*d %*d.%*d.%*d.%*d:%d %*d.%*d.%*d.%*d:%*s %s %d/%s\n",
+            info->protocol,
+            localAddrBuff,
+            &(info->port),
+            foreignAddrBuff,
+            info->state,
+            &(info->pid),
+            info->procName);
+        // 주소를 네트워크 바이트로 변환
+        inet_aton(localAddrBuff, &(info->localAddress));
+        inet_aton(foreignAddrBuff, &(info->foreignAddress));
+    }
+
+    return count;
+}
