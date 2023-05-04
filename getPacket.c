@@ -1,4 +1,6 @@
 #include "header/getPacket.h"
+#include "header/getProc.h"
+#include "header/tcpkiller.h"
 
 /*
 struct pcap_pkthdr {
@@ -48,7 +50,7 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
 
     // 이더넷 헤더
     etherHdr = (struct ether_header*)(packet + offset);
-    offset = sizeof(struct ether_header);
+    offset += sizeof(struct ether_header);
 
     // IP가 아닌 패킷
     if(ntohs(etherHdr->ether_type) != ETHERTYPE_IP){
@@ -56,5 +58,21 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
     }
 
     ipHdr = (struct ip*)(packet + offset);
-    offset = sizeof(struct ip);
+    offset += sizeof(struct ip);
+
+    // tcp 패킷
+    if(ipHdr->ip_p == IPPROTO_TCP){
+        struct tcphdr* tcpHdr = ipHdr = (struct tcphdr*)(packet + offset);
+        offset += sizeof(struct tcphdr);
+
+        printf("pcap: dest port: %d\n", ntohs(tcpHdr->dest));
+        struct procInfo info;
+
+        // 프로세스를 발견하지 못함
+        if(getProcInfoByPort(&info, ntohs(tcpHdr->dest)) == NULL){
+            return;
+        }
+        
+        // printProcInfo(&info);
+    }
 }

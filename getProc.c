@@ -52,7 +52,7 @@ struct procInfo* getProcInfoByPort(struct procInfo* info, int port){
         return NULL;
     }
 
-    printf(buff);
+    // printf(buff);
     char localAddrBuff[32];
     char foreignAddrBuff[32];
     // Proto Recv-Q Send-Q Local_Address Foreign_Address State PID/Program name
@@ -104,7 +104,7 @@ int getMulProcInfoByPort(struct procInfo* infoArr, size_t num, int port){
         return -1;
     }
 
-    printf(buff);
+    // printf(buff);
     int offset = 0;
     int count = 0;
     for(count = 0; count < num; count++){
