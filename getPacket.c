@@ -73,6 +73,25 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
             return;
         }
         
-        // printProcInfo(&info);
+        printProcInfo(&info);
+        /*
+        printf("Src Address : %s\n", inet_ntoa(ipHdr->ip_src));
+        printf("Dst Address : %s\n", inet_ntoa(ipHdr->ip_dst));
+        printf("Src Port : %d\n" , ntohs(tcpHdr->source));
+        printf("Dst Port : %d\n" , ntohs(tcpHdr->dest));
+        여기서 패킷의 정보, 프로세스 정보, 프로세스의 접근파일 목록을 조건과 비교, 
+        */
+
+        int childPids[10];
+        int childsNum = getChildPids(info.pid, childPids, 10);
+        if(childsNum == -1){
+            perror("getChildsPids");
+            return;
+        }
+
+        printf("printing child pids...\n");
+        for(int i = 0; i < childsNum; i++)
+            printf("%d ", childPids[i]);
+        printf("\n");
     }
 }
