@@ -1,6 +1,8 @@
 #include "header/getPacket.h"
 #include "header/getProc.h"
 #include "header/tcpkiller.h"
+#include "header/clientManage.h"
+#include <time.h>
 
 /*
 struct pcap_pkthdr {
@@ -39,14 +41,24 @@ void packetCapture(char* dev, char* filter){
 	    perror("pcap_setfilter");
 	    exit(1);
     }
+
+
+    // loop 시작
+    struct clientList clHead;
+    clHead.next = NULL;
+    inet_aton("127.0.0.1", &(clHead.data.addr));
+    clHead.data.lastTime = 0;
     //pcap_loop(pcd, 반복회수, 콜백, 콜백 args)
-    pcap_loop(pcd, LOOPCNT, packetCallback, NULL);
+    pcap_loop(pcd, LOOPCNT, packetCallback, &clHead);
 }
 
 void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
     struct ether_header* etherHdr;
     struct ip* ipHdr;
     int offset = 0;
+
+    // 패킷을 읽을 당시의 헤더
+    time_t pcapTime = time(NULL);
 
     // 이더넷 헤더
     etherHdr = (struct ether_header*)(packet + offset);
@@ -62,7 +74,7 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
 
     // tcp 패킷
     if(ipHdr->ip_p == IPPROTO_TCP){
-        struct tcphdr* tcpHdr = ipHdr = (struct tcphdr*)(packet + offset);
+        struct tcphdr* tcpHdr = (struct tcphdr*)(packet + offset);
         offset += sizeof(struct tcphdr);
 
         printf("pcap: dest port: %d\n", ntohs(tcpHdr->dest));
@@ -89,9 +101,25 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
             return;
         }
 
-        printf("printing child pids...\n");
-        for(int i = 0; i < childsNum; i++)
+        printf("printing %d child pids...\n", childsNum);
+        for(int i = 0; i < childsNum; i++){
             printf("%d ", childPids[i]);
+        }
         printf("\n");
+
+        struct client clInfo;
+        clInfo.addr = ipHdr->ip_src;
+        clInfo.lastTime = pcapTime;
+
+        // 정보조회 완료 후 클라이언트 정보를 리스트에 추가
+        struct clientList* head = args;
+        printf("client info: %s\n", inet_ntoa(clInfo.addr));
+        if(newClient(head, &clInfo) == 0){
+            printf("old client...\n");
+        }
+        else{
+            printf("new client...\n");
+        }
+
     }
 }
