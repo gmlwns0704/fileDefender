@@ -1,22 +1,23 @@
 #include <stdio.h>
 #include "header/getProc.h"
+#include <string.h>
 
 int main()
 {
     FILE* fp;
     struct procInfo procIn;
-    int PID, i;
-    //ÆÄÀÏ Ãâ·ÂÇÏ´Â ¹öÆÛ
-    char buff[200];
-    //sprintf ÀÓ½Ã ¹öÆÛ
-    char buffer[200];
+    int PID;
+    //íŒŒì¼ ì¶œë ¥í•˜ëŠ” ë²„í¼
+    char buff[BUFSIZ];
+    //sprintf ì„ì‹œ ë²„í¼
+    char buffer[BUFSIZ];
 
-    //Æ÷Æ® ¹øÈ£·Î ÇÁ·Î¼¼½º ¾ÆÀÌµğ ¹Ş¾Æ¿À±â
+    //í¬íŠ¸ ë²ˆí˜¸ë¡œ í”„ë¡œì„¸ìŠ¤ ì•„ì´ë”” ë°›ì•„ì˜¤ê¸°
     getProcInfoByPort(&procIn, 22);
 
     PID = procIn.pid;
-    i = sprintf(buffer, "%s", "lsof -p ");
-    i += sprintf(buffer + i, "%d", PID);
+
+    sprintf(buffer, "lsof +p %d | tr -s ' ' | cut -d' ' -f9 ", PID);
 
     fp = popen(buffer, "r");
     if (fp == NULL)
