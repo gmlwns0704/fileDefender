@@ -12,7 +12,12 @@
     int pid;
     char procName[128];
 };*/
+
+/*
+procInfo 구조체 내용 출력
+*/
 void printProcInfo(struct procInfo* info){
+    printf("===printing process info===\n");
     printf("protocol: %s\n", info->protocol);
     printf("port: %d\n", info->port);
     printf("local IP: %s\n", inet_ntoa(info->localAddress));
@@ -22,19 +27,22 @@ void printProcInfo(struct procInfo* info){
     printf("process name: %s\n", info->procName);
 }
 
+/*
+해당 포트번호를 사용하는 프로세스의 정보를 취해서 procInfo 구조체에 저장
+*/
 struct procInfo* getProcInfoByPort(struct procInfo* info, int port){
     // 명령어 출력 결과 버퍼
     char buff[BUFSIZ];
     memset(buff, 0, sizeof(buff));
 
     // 명령어 설정
-    char command[BUFSIZ];
-    sprintf(command, "netstat -ntlp | grep :%d", port);
+    char path[BUFSIZ];
+    sprintf(path, "netstat -ntlp | grep :%d", port);
     
     //결과 버퍼
     memset(info, 0, sizeof(struct procInfo));
     
-    FILE* f = popen(command, "r");
+    FILE* f = popen(path, "r");
     if (f == NULL){
         perror("popen");
         pclose(f);
@@ -106,8 +114,11 @@ int getMulProcInfoByPort(struct procInfo* infoArr, size_t num, int port){
 
     // printf(buff);
     int offset = 0;
-    int count = 0;
+    int count;
     for(count = 0; count < num; count++){
+        if(buff[offset] == NULL)
+            break;
+        
         char line[BUFSIZ];
         struct procInfo* info;
 
@@ -130,6 +141,33 @@ int getMulProcInfoByPort(struct procInfo* infoArr, size_t num, int port){
         inet_aton(localAddrBuff, &(info->localAddress));
         inet_aton(foreignAddrBuff, &(info->foreignAddress));
     }
-
     return count;
 }
+
+/*
+특정 프로세스의 자식 프로세스 목록 조회 후 childPids에 저장
+오류 발생시 마이너스값 리턴
+자식 프로세스의 개수 리턴
+*/
+int getChildPids(int ppid, int* childPids, int maxCnt){
+    // 자식 프로세스들이 저장되는 파일 읽음
+    char path[BUFSIZ];
+    sprintf(path, "/proc/%d/task/%d/children", ppid, ppid);
+    
+    FILE* f = fopen(path, "r");
+    if (f == NULL){
+        perror("fopen");
+        pclose(f);
+        return -1;
+    }
+
+    // 파일에서 %d단위로 읽어옴
+    int count;
+    for(count = 0; !feof(f) && count < maxCnt; count++){
+        fscanf(f, "%d ", childPids+count);
+    }
+
+    fclose(f);
+    return count;
+}
+
