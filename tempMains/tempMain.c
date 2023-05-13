@@ -1,5 +1,5 @@
-#include "header/getProc.h"
-#include "header/tcpkiller.h"
+#include "../header/getProc.h"
+#include "../header/tcpkiller.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 
 int main(int argc, char** argv){
     if(argc != 4){
@@ -36,42 +37,14 @@ int main(int argc, char** argv){
         exit(0);
     }
 
-    char buff[BUFSIZ];
-
-    // 자식 프로세스에 내릴 명령 선택
-    struct command input;
-    input.func = t_blockPort;
-    // input.func = t_blockIp;
-    input.size = T_BLOCKPORT_SIZE;
-    // 하나의 버퍼에 병합
-    memcpy(buff, &input, sizeof(input));
-    memcpy(buff+sizeof(input), &ci, input.size);
-    
-    // 명령 전달
-    if(write(pipeMainToSub[1], buff, sizeof(input)+input.size) == -1)
-        perror("write");
-    printf("worked?\n");
-
+    // 차단
+    int targetPid = connInfoCommand(pipeMainToSub[1], pipeSubToMain[0], t_blockIpAndPort, &ci);
+    printf("closed\n");
+    // 대기
     sleep(10);
-    
-    printf("now remove it...\n");
-    // 자식 프로세스에서 반환한 pid값 받기
-    int targetPid;
-    if(read(pipeSubToMain[0], &targetPid, sizeof(targetPid)) == -1){
-        perror("read");
-        exit(1);
-    }
-    
-    // 실행중인 차단 프로세스 종료하기
-    input.func = t_deleteTable;
-    input.size = T_DELETETABLE_SIZE;
-    // 하나의 버퍼에 병합
-    memcpy(buff, &input, sizeof(input));
-    memcpy(buff+sizeof(input), &ci, input.size);
-    // 명령 전달
-    if(write(pipeMainToSub[1], &input, sizeof(input)+input.size) == -1)
-        perror("write");
-    printf("worked?\n");
+    // 차단 해제
+    rmCommand(pipeMainToSub[1], pipeSubToMain[0], targetPid);
+    printf("opened\n");
     
     wait(pid);
 

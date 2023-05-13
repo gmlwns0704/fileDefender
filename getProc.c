@@ -116,27 +116,30 @@ int getMulProcInfoByPort(struct procInfo* infoArr, size_t num, int port){
     int offset = 0;
     int count;
     for(count = 0; count < num; count++){
-        if(buff[offset] == NULL)
+        if(buff[offset] == '\0')
             break;
         
         char line[BUFSIZ];
         struct procInfo* info;
 
+        // 한줄씩 읽음
         sscanf(buff + offset, "%[^\n]\n", line);
+        // 읽은 만큼 buff offset
         offset += strlen(line)+1;
+        // info = &(infoarr[count])
         info = (struct procInfo*)((struct procInfo*)infoArr + count);
 
         char localAddrBuff[32];
         char foreignAddrBuff[32];
         // Proto Recv-Q Send-Q Local_Address Foreign_Address State PID/Program name
-        sscanf(line, "%s %*d %*d %*d.%*d.%*d.%*d:%d %*d.%*d.%*d.%*d:%*s %s %d/%s\n",
-            info->protocol,
-            localAddrBuff,
-            &(info->port),
-            foreignAddrBuff,
-            info->state,
-            &(info->pid),
-            info->procName);
+        sscanf(buff, "%s %*d %*d %[^: ]:%d %[^: ]:%*s %s %d/%[^: ]\n",
+        info->protocol,
+        localAddrBuff,
+        &(info->port),
+        foreignAddrBuff,
+        info->state,
+        &(info->pid),
+        info->procName);
         // 주소를 네트워크 바이트로 변환
         inet_aton(localAddrBuff, &(info->localAddress));
         inet_aton(foreignAddrBuff, &(info->foreignAddress));
