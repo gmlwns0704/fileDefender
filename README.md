@@ -37,9 +37,3 @@ ex) A클라이언트가 A파일에 접근하는 것을 B가 A파일에 접근하
 
 # blockController (프로세스B) 에 명령내리는 법
 tempMain.c 참고
-  1. struct command 구조체 변수 생성
-  2. command.func 값 설정 (tcpkiller.h의 enum functable참조)
-  3. command.size 값 설정 (tcpkiller.h의 enum functable 주석 참조 or 그 아래의 #define 참조)
-  4. func값에 따른 적절한 변수값 설정 (ex: func = t_blockPort 라면, struct connInfo)
-  5. 둘을 하나의 버퍼에 통합
-  6. 자식프로세스 readfd에 write
