@@ -12,6 +12,9 @@ struct pcap_pkthdr {
 };
 */
 
+/*
+패킷 캡쳐 루프 시작
+*/
 #define LOOPCNT 100
 //https://www.tcpdump.org/pcap.html
 void packetCapture(char* dev, char* filter){
@@ -46,12 +49,16 @@ void packetCapture(char* dev, char* filter){
     // loop 시작
     struct clientList clHead;
     clHead.next = NULL;
-    inet_aton("127.0.0.1", &(clHead.data.addr));
-    clHead.data.lastTime = 0;
-    //pcap_loop(pcd, 반복회수, 콜백, 콜백 args)
-    pcap_loop(pcd, LOOPCNT, packetCallback, &clHead);
+    inet_aton("127.0.0.1", &(clHead.clInfo.addr));
+    clHead.clInfo.lastTime = 0;
+    // pcap_loop(pcd, 반복회수, 콜백, 콜백 args)
+    // clHead를 u_char* 로 컴파일한건 pcap_loop 형식때문, 실제론 (struct clientList*) 임
+    pcap_loop(pcd, LOOPCNT, packetCallback, (u_char*)&clHead);
 }
 
+/*
+패킷 캡쳐 콜백
+*/
 void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
     struct ether_header* etherHdr;
     struct ip* ipHdr;
@@ -111,9 +118,10 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
         clInfo.addr = ipHdr->ip_src;
         clInfo.lastTime = pcapTime;
 
-        // 정보조회 완료 후 클라이언트 정보를 리스트에 추가
-        struct clientList* head = args;
+        // args로 입력받은 client linked list head 받아오기
+        struct clientList* head = (struct clientList*)args;
         printf("client info: %s\n", inet_ntoa(clInfo.addr));
+        // 정보조회 완료 후 클라이언트 정보를 리스트에 추가
         if(newClient(head, &clInfo) == 0){
             printf("old client...\n");
         }
@@ -122,4 +130,14 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
         }
 
     }
+}
+
+
+/*
+procInfo, clInfo를 기반으로 해당 패킷의 적합성 판단
+적합하다면 1 리턴
+부적합하다면 0 리턴
+*/
+int judgePacket(struct procInfo* procInfo, struct client clInfo){
+
 }
