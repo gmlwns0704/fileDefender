@@ -4,11 +4,71 @@
 #include "header/clientManage.h"
 #include <time.h>
 
+
+// pcap에 포함된 각 헤더의 구조
+
+// 이더넷
 /*
 struct pcap_pkthdr {
 	struct timeval ts; // time stamp
 	bpf_u_int32 caplen; // length of portion present
 	bpf_u_int32 len; // length this packet (off wire)
+};
+*/
+
+// ip
+/*
+struct ip
+  {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    unsigned int ip_hl:4;       /* header length
+    unsigned int ip_v:4;        /* version
+#endif
+#if __BYTE_ORDER == __BIG_ENDIAN
+    unsigned int ip_v:4;        /* version
+    unsigned int ip_hl:4;       /* header length
+#endif
+    u_int8_t ip_tos;            /* type of service
+    u_short ip_len;         /* total length
+    u_short ip_id;          /* identification
+    u_short ip_off;         /* fragment offset field
+#define IP_RF 0x8000            /* reserved fragment flag
+#define IP_DF 0x4000            /* dont fragment flag
+#define IP_MF 0x2000            /* more fragments flag
+#define IP_OFFMASK 0x1fff       /* mask for fragmenting bits
+    u_int8_t ip_ttl;            /* time to live
+    u_int8_t ip_p;          /* protocol
+    u_short ip_sum;         /* checksum
+    struct in_addr ip_src, ip_dst;  /* source and dest address
+  };
+*/
+
+// tcp
+/*
+struct tcphdr
+  {
+    u_int16_t th_sport;     // source port
+    u_int16_t th_dport;     // destination port
+    tcp_seq th_seq;     // sequence number
+    tcp_seq th_ack;     // acknowledgement number
+#  if __BYTE_ORDER == __LITTLE_ENDIAN
+    u_int8_t th_x2:4;       // (unused)
+    u_int8_t th_off:4;      // data offset
+#  endif
+#  if __BYTE_ORDER == __BIG_ENDIAN
+    u_int8_t th_off:4;      // data offset
+    u_int8_t th_x2:4;       // (unused)
+#  endif
+    u_int8_t th_flags;
+#  define TH_FIN    0x01
+#  define TH_SYN    0x02
+#  define TH_RST    0x04
+#  define TH_PUSH   0x08
+#  define TH_ACK    0x10
+#  define TH_URG    0x20
+    u_int16_t th_win;       // window
+    u_int16_t th_sum;       // checksum
+    u_int16_t th_urp;       // urgent pointer
 };
 */
 
@@ -77,14 +137,37 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
     }
 
     ipHdr = (struct ip*)(packet + offset);
-    offset += sizeof(struct ip);
+    offset += ipHdr->ip_hl * 4;
 
     // tcp 패킷
     if(ipHdr->ip_p == IPPROTO_TCP){
         struct tcphdr* tcpHdr = (struct tcphdr*)(packet + offset);
-        offset += sizeof(struct tcphdr);
+        // offset += sizeof(struct tcphdr);
+        // tcp헤더의 크기 = data offset * 4 bytes
+        offset += tcpHdr->th_off * 4;
+        #ifdef DEBUG
+        printf("pcap: tcp header size: %d\n", tcpHdr->th_off * 4);
+        printf("pcap: dest port: %d\n", ntohs(tcpHdr->th_dport));
+        #endif
 
-        printf("pcap: dest port: %d\n", ntohs(tcpHdr->dest));
+        // tcp payload 포인트
+        const u_char* payload = (packet + offset);
+        // payload size = ip패킷 길이 - tcp헤더 길이 - ip헤더 길이
+        // ipHdr는 ntohs을 씌워줘야함, 왜 얘만 그런지는 모르겠음
+        u_short payloadLen = ntohs(ipHdr->ip_len) - (tcpHdr->th_off * 4) - (ipHdr->ip_hl * 4);
+
+        #ifdef DEBUG
+        printf("ip_len: %d bytes\nth_off: %d bytes\nip_hl: %d bytes\n",
+        ntohs(ipHdr->ip_len),
+        tcpHdr->th_off*4,
+        ipHdr->ip_hl*4);
+        printf("payload length: %d\n", payloadLen);
+        printf("print payload:\n");
+        for(int i = 0; i < payloadLen; i++)
+            printf("0x%02x ", payload[i]);
+        printf("\n");
+        #endif
+
         struct procInfo info;
 
         // 프로세스를 발견하지 못함
@@ -92,14 +175,9 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
             return;
         }
         
+        #ifdef DEBUG
         printProcInfo(&info);
-        /*
-        printf("Src Address : %s\n", inet_ntoa(ipHdr->ip_src));
-        printf("Dst Address : %s\n", inet_ntoa(ipHdr->ip_dst));
-        printf("Src Port : %d\n" , ntohs(tcpHdr->source));
-        printf("Dst Port : %d\n" , ntohs(tcpHdr->dest));
-        여기서 패킷의 정보, 프로세스 정보, 프로세스의 접근파일 목록을 조건과 비교, 
-        */
+        #endif
 
         int childPids[10];
         int childsNum = getChildPids(info.pid, childPids, 10);
@@ -108,11 +186,13 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
             return;
         }
 
+        #ifdef DEBUG
         printf("printing %d child pids...\n", childsNum);
         for(int i = 0; i < childsNum; i++){
             printf("%d ", childPids[i]);
         }
         printf("\n");
+        #endif
 
         struct client clInfo;
         clInfo.addr = ipHdr->ip_src;

@@ -20,8 +20,10 @@ int main(int argc, char** argv){
     ci.port = atoi(argv[3]);
 
     struct procInfo procInfo;
-    if(getProcInfoByPort(&procInfo, ci.port) == 0)
-        printf("process not found\n");
+    if(getProcInfoByPort(&procInfo, ci.port) == 0){
+        printf("process not found\nfinish with nothing\n");
+        return 0;
+    }
     else
         printProcInfo(&procInfo);
 
