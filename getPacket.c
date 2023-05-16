@@ -145,6 +145,7 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
         // offset += sizeof(struct tcphdr);
         // tcp헤더의 크기 = data offset * 4 bytes
         offset += tcpHdr->th_off * 4;
+        
         #ifdef DEBUG
         printf("pcap: tcp header size: %d\n", tcpHdr->th_off * 4);
         printf("pcap: dest port: %d\n", ntohs(tcpHdr->th_dport));

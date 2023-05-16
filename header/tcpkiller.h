@@ -11,13 +11,15 @@ enum funcTable{
     t_blockIp, //struct connInfo
     t_blockIpAndPort, //struct connInfo
     t_blockCustom, //size_t(strlen), string
-    t_deleteTable //pid_t
+    t_deleteTable, //pid_t
+    t_deleteAll //none
 };
 #define T_BLOCKPORT_SIZE (sizeof(struct connInfo))
 #define T_BLOCKIP_SIZE (sizeof(struct connInfo))
 #define T_BLOCKIPANDPORT_SIZE (sizeof(struct connInfo))
 // #define T_BLOCKCUSTOM_SIZE (이건 따라오는 문자열 길이만큼)
 #define T_DELETETABLE_SIZE (sizeof(pid_t))
+#define T_DELETEALL_SIZE (0)
 
 #ifdef DEBUG
 // 해당 pid의 프로세스가 실행되고 있는지 확인 (디버깅용)

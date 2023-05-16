@@ -122,6 +122,9 @@ int blockCustom(char* command){
     return pid; // subprocess의 pid 리턴
 }
 
+/*
+tcpkill child process들을 종합적으로 관리
+*/
 void blockController(int fdread, int fdwrite){
     int readLen;
     struct command input;
@@ -180,6 +183,10 @@ void blockController(int fdread, int fdwrite){
             case문 내에서 필요한 작업을 최대한 끝내야함
             case문의 마지막은 continue로 끝내야함
             */
+
+            /*
+            수동으로 문자열을 입력해서 tcpkill 실행
+            */
             case t_blockCustom:
                 newPid = blockCustom(buff);
                 pidList[idx] = newPid;
@@ -187,6 +194,10 @@ void blockController(int fdread, int fdwrite){
                     perror("write");
                 continue;
 
+            /*
+            원하는 pid를 입력하면 해당 프로세스 종료
+            리턴 없음
+            */
             case t_deleteTable: {
                 // 삭제할 인덱스 탐색
                 int targetIdx;
@@ -195,10 +206,21 @@ void blockController(int fdread, int fdwrite){
                 kill(pidList[targetIdx], SIGINT);
                 // pidList에서 제거
                 pidList[targetIdx] = 0;
-            }
+            } // case t_deleteTable
                 continue;
+            /*
+            모든 자식프로세스 종료
+            */
+            case t_deleteAll: {
+                for(int i = 0; i < PLISTSIZE; i++){
+                    if(pidList[i])
+                        kill(pidList[i], SIGINT);
+                    pidList[i] = 0;
+                }
+            } //case t_deleteAll
 
         } //switch
+
         /*
         connInfo를 따르는 형식의 명령들의 공통된 작업
         connInfo 형식을 따르는 명령의 결과를 fdwrite에 write
