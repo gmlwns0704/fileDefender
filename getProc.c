@@ -159,8 +159,7 @@ int getChildPids(int ppid, int* childPids, int maxCnt){
     
     FILE* f = fopen(path, "r");
     if (f == NULL){
-        perror("fopen");
-        pclose(f);
+        perror("return -1: fopen");
         return -1;
     }
 

@@ -24,8 +24,7 @@ enum funcTable{
 #define CHKPID(pid) {\
     char CHKPID_TMP[100];\
     sprintf(CHKPID_TMP, "ps aux | grep %u | grep -v grep", (pid));\
-    system(CHKPID_TMP);\
-}
+    system(CHKPID_TMP);}
 #endif
 
 /*
