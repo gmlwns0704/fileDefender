@@ -3,6 +3,7 @@
 #include "header/tcpkiller.h"
 #include "header/clientManage.h"
 #include <time.h>
+#include <dirent.h>
 
 
 // pcap에 포함된 각 헤더의 구조
@@ -109,17 +110,26 @@ void packetCapture(char* dev, char* filter){
     // loop 시작
     struct clientList clHead;
     clHead.next = NULL;
+    // head는 loopback
     inet_aton("127.0.0.1", &(clHead.clInfo.addr));
     clHead.clInfo.lastTime = 0;
+
+    // pcap에서 쓸 매개변수 전달을 위한 버퍼 구성
+    struct pcapLoopArgs args;
+    args.clHeadPtr = &clHead;
+    args.interface = dev;
     // pcap_loop(pcd, 반복회수, 콜백, 콜백 args)
-    // clHead를 u_char* 로 컴파일한건 pcap_loop 형식때문, 실제론 (struct clientList*) 임
-    pcap_loop(pcd, LOOPCNT, packetCallback, (u_char*)&clHead);
+    pcap_loop(pcd, LOOPCNT, packetCallback, (u_char*)&args);
 }
 
 /*
 패킷 캡쳐 콜백
 */
 void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
+    // 코드 편의상 args로 받은 값들의 포인터 별도 생성
+    struct clientList* head = ((struct pcapLoopArgs*)args)->clHeadPtr;
+    const char* interface = ((struct pcapLoopArgs*)args)->interface;
+
     struct ether_header* etherHdr;
     struct ip* ipHdr;
     int offset = 0;
@@ -142,9 +152,26 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
     // tcp 패킷
     if(ipHdr->ip_p == IPPROTO_TCP){
         struct tcphdr* tcpHdr = (struct tcphdr*)(packet + offset);
-        // offset += sizeof(struct tcphdr);
         // tcp헤더의 크기 = data offset * 4 bytes
         offset += tcpHdr->th_off * 4;
+
+        struct procInfo info;
+        // 프로세스를 발견하지 못함
+        if(getProcInfoByPort(&info, ntohs(tcpHdr->th_dport)) == NULL){
+            return;
+        }
+        
+        // 클라이언트 정보
+        struct client clInfo;
+        clInfo.addr = ipHdr->ip_src;
+        clInfo.lastTime = pcapTime;
+
+        // 커넥션 정보 (tcpkill.c 함수들에서 사용)
+        struct connInfo connInfo;
+        connInfo.interface = interface;
+        connInfo.ip = ipHdr->ip_src;
+        connInfo.port = ntohs(tcpHdr->th_dport);
+        
         #ifdef DEBUG
         printf("pcap: tcp header size: %d\n", tcpHdr->th_off * 4);
         printf("pcap: dest port: %d\n", ntohs(tcpHdr->th_dport));
@@ -167,13 +194,6 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
             printf("0x%02x ", payload[i]);
         printf("\n");
         #endif
-
-        struct procInfo info;
-
-        // 프로세스를 발견하지 못함
-        if(getProcInfoByPort(&info, ntohs(tcpHdr->dest)) == NULL){
-            return;
-        }
         
         #ifdef DEBUG
         printProcInfo(&info);
@@ -181,11 +201,6 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
 
         int childPids[10];
         int childsNum = getChildPids(info.pid, childPids, 10);
-        if(childsNum == -1){
-            perror("getChildsPids");
-            return;
-        }
-
         #ifdef DEBUG
         printf("printing %d child pids...\n", childsNum);
         for(int i = 0; i < childsNum; i++){
@@ -194,12 +209,6 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
         printf("\n");
         #endif
 
-        struct client clInfo;
-        clInfo.addr = ipHdr->ip_src;
-        clInfo.lastTime = pcapTime;
-
-        // args로 입력받은 client linked list head 받아오기
-        struct clientList* head = (struct clientList*)args;
         printf("client info: %s\n", inet_ntoa(clInfo.addr));
         // 정보조회 완료 후 클라이언트 정보를 리스트에 추가
         if(newClient(head, &clInfo) == 0){
@@ -209,15 +218,90 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
             printf("new client...\n");
         }
 
+        if(judgePacket(&info, &clInfo)){
+            // isDataInFile(payload, payloadLen, )
+            /*
+            메인함수에서 이미 initController를 수행했다는 가정
+            tcpkill 명령
+            */
+            // connInfoCommand(t_blockIpAndPort, &connInfo);
+        }
     }
 }
 
 
 /*
-procInfo, clInfo를 기반으로 해당 패킷의 적합성 판단
+procInfo, clInfo를 기반으로 패킷의 적합성 판단
+패킷이 통신하는 프로세스가 부적절한 파일에 접근했는지 확인
 적합하다면 1 리턴
 부적합하다면 0 리턴
 */
-int judgePacket(struct procInfo* procInfo, struct client clInfo){
+int judgePacket(struct procInfo* procInfo, struct client clInfo, const char* payload, size_t payloadLen){
+    /*
+    설정파일에서 clInfo가 접근하면 안되는 path 목록 얻어오기
+    */
 
+    /*
+    이전에 getProcInfoByPort로 얻어온 프로세스 정보의 pid로 파일 접근여부 확인
+    자식 프로세스들도 같이 조회할 예정
+    */
+   
+    // 프로세스가 보호대상 파일에 접근하지 않음
+    if(findfile(procInfo->pid, "/home/ubuntuhome/sftp/") == 0){
+        return 0;
+    }
+
+    /*
+    프로세스가 접근한 보호대상 파일들 중, 패킷의 데이터와 일치하는 것이 있는지 확인
+    */
+    /*
+    // 각 path에 대하여
+    for(int i = 0; i < 'path의 개수'; i++){
+        // 데이터가 path파일의 일부인지 확인
+        if(isDataInFile(payload, payloadLen, paths[i])){
+            // 차단
+            connInfoCommnad(t_blockIp, clInfo);
+        }
+    }
+    */
+
+    printf("this process tried to access file!\n");
+    return 1;
+}
+
+/*
+데이터가 대상 파일의 일부인지 확인
+*/
+int isDataInFile(const char* payload, size_t size, const char* path){
+    FILE* f = fopen(path, "r");
+    if(f == NULL){
+        perror("fopen");
+        return 0;
+    }
+    char fbyte;
+    size_t byteCount = 0;
+
+    // size만큼 일치하는 내용 발견 or 파일의 끝 도달시 종료
+    while(byteCount < size && !feof(f)){
+        // 1byte씩 읽음
+        fread(&fbyte, 1, 1, f);
+        #ifdef DEBUG
+        printf("%02x vs %02x\n", fbyte, *(payload + byteCount));
+        #endif
+        // payload의 1byte를 fbyte와 비교
+        if(*(payload + byteCount) == fbyte){
+            // byteCount 1증가
+            byteCount++;
+        }
+        else{
+            // byteCount초기화
+            byteCount = 0;
+            // 파일포인터 다시 앞으로 한칸
+            // fseek(f, -1, SEEK_CUR);
+        }
+    }
+
+    fclose(f);
+    // byteCount == size 라면 일치하는 것 발견, 아니라면 발견X
+    return (byteCount == size);
 }

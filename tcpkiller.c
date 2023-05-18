@@ -11,6 +11,44 @@
 /*
 특정 인터페이스 특정 포트 차단, pid 리턴
 */
+
+static int pipein[2];
+static int pipeout[2];
+static int controllerPid;
+
+/*
+controller 자식 프로세스 실행
+*/
+int initController(){
+    pipe(pipein);
+    pipe(pipeout);
+    controllerPid = fork();
+    if(controllerPid == 0){
+        blockController(pipein[0], pipeout[1]);
+    }
+
+    return controllerPid;
+}
+
+/*
+자식 프로세스 종료와 관련 하위 프로세스 정리 등등
+*/
+int endController(){
+    char commandBuff[BUFSIZ];
+    // 자식 프로세스에 내릴 명령
+    struct command input;
+    input.func = t_deleteAll;
+    input.size = T_DELETEALL_SIZE;
+    // 하나의 버퍼에 병합
+    memcpy(commandBuff, &input, sizeof(input));
+    // 명령 전달
+    if(write(pipein[1], commandBuff, sizeof(input)+input.size) == -1){
+        perror("write");
+        return 0;
+    }
+    return controllerPid;
+}
+
 int blockPort(struct connInfo* connInfo){
     char buff[10];
     pid_t pid = fork();
@@ -122,6 +160,9 @@ int blockCustom(char* command){
     return pid; // subprocess의 pid 리턴
 }
 
+/*
+tcpkill child process들을 종합적으로 관리
+*/
 void blockController(int fdread, int fdwrite){
     int readLen;
     struct command input;
@@ -180,6 +221,10 @@ void blockController(int fdread, int fdwrite){
             case문 내에서 필요한 작업을 최대한 끝내야함
             case문의 마지막은 continue로 끝내야함
             */
+
+            /*
+            수동으로 문자열을 입력해서 tcpkill 실행
+            */
             case t_blockCustom:
                 newPid = blockCustom(buff);
                 pidList[idx] = newPid;
@@ -187,6 +232,10 @@ void blockController(int fdread, int fdwrite){
                     perror("write");
                 continue;
 
+            /*
+            원하는 pid를 입력하면 해당 프로세스 종료
+            리턴 없음
+            */
             case t_deleteTable: {
                 // 삭제할 인덱스 탐색
                 int targetIdx;
@@ -195,10 +244,27 @@ void blockController(int fdread, int fdwrite){
                 kill(pidList[targetIdx], SIGINT);
                 // pidList에서 제거
                 pidList[targetIdx] = 0;
-            }
+            } // case t_deleteTable
                 continue;
+            /*
+            모든 자식프로세스 종료
+            */
+            case t_deleteAll: {
+                for(int i = 0; i < PLISTSIZE; i++){
+                    if(pidList[i])
+                        kill(pidList[i], SIGINT);
+                    pidList[i] = 0;
+                }
+            } //case t_deleteAll
+                continue;
+            /*
+            종료
+            */
+            case t_stop:
+                exit(0);
 
         } //switch
+
         /*
         connInfo를 따르는 형식의 명령들의 공통된 작업
         connInfo 형식을 따르는 명령의 결과를 fdwrite에 write
@@ -214,7 +280,7 @@ void blockController(int fdread, int fdwrite){
 /*
 메인 프로세스에서 tcpkill 프로세스 관리 전용 프로세스에 명령내릴때 사용
 */
-int connInfoCommand(int pipeWrite, int pipeRead, enum funcTable func, struct connInfo* connInfo){
+int _connInfoCommand(int pipeWrite, int pipeRead, enum funcTable func, struct connInfo* connInfo){
     char commandBuff[BUFSIZ];
     // 자식 프로세스에 내릴 명령
     struct command input;
@@ -251,11 +317,13 @@ int connInfoCommand(int pipeWrite, int pipeRead, enum funcTable func, struct con
     // 생성된 tcpkill pid 리턴
     return returnPid;
 }
-
+int connInfoCommand(enum funcTable func, struct connInfo* connInfo){
+    return _connInfoCommand(pipein[1], pipeout[0], func, connInfo);
+}
 /*
 해당 pid에 해당하는 프로세스 kill
 */
-int rmCommand(int pipeWrite, int pipeRead, pid_t pid){
+int _rmCommand(int pipeWrite, int pipeRead, pid_t pid){
     char commandBuff[BUFSIZ];
     // 자식 프로세스에 내릴 명령
     struct command input;
@@ -271,4 +339,7 @@ int rmCommand(int pipeWrite, int pipeRead, pid_t pid){
     }
     // 제거한 pid 리턴
     return pid;
+}
+int rmCommand(pid_t pid){
+    return _rmCommand(pipein[1], pipein[0], pid);
 }

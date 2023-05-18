@@ -11,13 +11,16 @@ enum funcTable{
     t_blockIp, //struct connInfo
     t_blockIpAndPort, //struct connInfo
     t_blockCustom, //size_t(strlen), string
-    t_deleteTable //pid_t
+    t_deleteTable, //pid_t
+    t_deleteAll, //none
+    t_stop //none
 };
 #define T_BLOCKPORT_SIZE (sizeof(struct connInfo))
 #define T_BLOCKIP_SIZE (sizeof(struct connInfo))
 #define T_BLOCKIPANDPORT_SIZE (sizeof(struct connInfo))
 // #define T_BLOCKCUSTOM_SIZE (이건 따라오는 문자열 길이만큼)
 #define T_DELETETABLE_SIZE (sizeof(pid_t))
+#define T_DELETEALL_SIZE (0)
 
 #ifdef DEBUG
 // 해당 pid의 프로세스가 실행되고 있는지 확인 (디버깅용)
@@ -39,10 +42,13 @@ struct command{
 커넥션에 대한 정보
 */
 struct connInfo{
-    char interface[32]; // 인터페이스 이름
+    const char* interface; // 인터페이스 이름
     int port; // 포트
     struct in_addr ip; // 대상 ip주소
 };
+
+int initController();
+int endController();
 
 int blockPort(struct connInfo* connInfo);
 int blockIp(struct connInfo* connInfo);
@@ -50,5 +56,7 @@ int blockIpAndPort(struct connInfo* connInfo);
 int blockCustom(char* command);
 
 void blockController(int fdread, int fdwrite);
-int connInfoCommand(int pipeWrite, int pipeRead, enum funcTable func, struct connInfo* connInfo);
-int rmCommand(int pipeWrite, int pipeRead, pid_t pid);
+int _connInfoCommand(int pipeWrite, int pipeRead, enum funcTable func, struct connInfo* connInfo);
+int connInfoCommand(enum funcTable func, struct connInfo* connInfo);
+int _rmCommand(int pipeWrite, int pipeRead, pid_t pid);
+int rmCommand(pid_t pid);

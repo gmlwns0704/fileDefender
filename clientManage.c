@@ -36,6 +36,7 @@ int clIsSame(struct client* a, struct client* b){
     if(!a || !b)
         return 0;
     // 값 비교
+    // ip 비교
     int result = (ntohs(a->addr.s_addr) == ntohs(b->addr.s_addr));
     return result;
 }

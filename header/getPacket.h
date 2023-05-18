@@ -14,5 +14,11 @@
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
 
+struct pcapLoopArgs{
+    struct clientList* clHeadPtr;
+    const char* interface;
+};
+
 void packetCapture(char* dev, char* filter);
 void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
+int isDataInFile(const char* payload, size_t size, const char* path);

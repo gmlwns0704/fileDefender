@@ -7,6 +7,7 @@
 struct client{
     struct in_addr addr; // ip주소
     time_t lastTime; // 마지막 통신 시간
+    int suspect; // 의심여부
 };
 
 struct clientList{
