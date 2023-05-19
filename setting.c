@@ -1,0 +1,89 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <pcap.h>
+#include "header/setting.h"
+
+
+int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCount) {
+    for (int i = 0; i < ruleCount; i++) {
+        if (strcmp(rules[i].path, path) == 0) {
+            if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
+                (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
+                return 1;  // 액세스 허용
+            } else {
+                return 0;  // 액세스 거부
+            }
+        }
+    }
+    return 1;  // 규칙에 일치하는 항목이 없으면 기본적으로 액세스 허용
+}
+//config.jason에 규칙설정
+
+void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
+{
+    json_error_t error;
+    json_t *root = json_load_file(configFile, 0, &error);
+    if (!root) {
+        fprintf(stderr, "error: %s\n", error.text);
+        exit(1);
+    }
+
+    *ruleCount = json_array_size(root);
+    *rules = (Rule *)malloc(sizeof(Rule) * (*ruleCount));
+
+    for (int i = 0; i < *ruleCount; i++) {
+        json_t *ruleObj = json_array_get(root, i);
+        json_t *ipObj = json_object_get(ruleObj, "ip");
+        json_t *pathObj = json_object_get(ruleObj, "path");
+        json_t *listTypeObj = json_object_get(ruleObj, "list_type");
+
+        if (!json_is_string(ipObj) || !json_is_string(pathObj) || !json_is_string(listTypeObj)) {
+            fprintf(stderr, "error.\n"); //규칙이 잘못될때
+            exit(1);
+        }
+
+        Rule *rule = &(*rules)[i];
+        strncpy(rule->ip, json_string_value(ipObj), MAX_IP_LENGTH);
+        strncpy(rule->path, json_string_value(pathObj), MAX_PATH_LENGTH);
+
+        const char *listType = json_string_value(listTypeObj);
+        if (strcmp(listType, "whitelist") == 0) {
+            rule->listType = WHITELIST; //화이트 리스트 규칙
+        } else if (strcmp(listType, "blacklist") == 0) {
+            rule->listType = BLACKLIST; //블랙리스트 규칙
+        } else {
+            fprintf(stderr, "설정 파일에 잘못된 목록 유형이 포함되어 있습니다.\n");
+            exit(1);
+        }
+    }
+
+    json_decref(root);     
+}
+
+void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet){
+    const struct ip *ipHeader = (struct ip *)(packet + 14);
+    const char *srcIp = inet_ntoa(ipHeader->ip_src);
+    const char *dstIp = inet_ntoa(ipHeader->ip_dst);
+
+    char filePath[MAX_PATH_LENGTH];
+    // 패킷에서 파일 경로 추출하는 코드
+
+    // 규칙에 기반하여 액세스 확인 (0 or 1)
+    int accessGranted = checkAccess(srcIp, filePath, (const Rule *)userData, *(int *)pkthdr);
+    if (accessGranted) {
+        // 패킷 처리
+    } else {
+        // 액세스 거부, 패킷을 삭제 tcpkill 뭐 아무거나..
+    }
+}
+
+
+
+
+
+int main(){
+    // 설정 파일을 읽어옴
+    //패킷 캡쳐
+}

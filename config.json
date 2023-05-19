@@ -1,0 +1,12 @@
+[
+    {
+        "ip": "127.0.0.1",
+        "path": "/",
+        "list_type": "whitelist"
+    },
+    {
+        "ip": "127.0.0.1",
+        "path": "/",
+        "list_type": "blacklist"
+    }
+]
