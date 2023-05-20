@@ -26,4 +26,8 @@ void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount);
  패킷을 처리하는 핸들러 함수
 */
 void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet);
-
+/*
+ ip주소를 입력받아 파일목록 추출
+ 접근불가 파일목록 반환
+*/
+int getInaccessibleFiles(const char *ip, const Rule *rules, int ruleCount, const char **files, int fileCount, const char ***inaccessibleFiles) 

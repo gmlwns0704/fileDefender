@@ -62,28 +62,71 @@ void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
     json_decref(root);     
 }
 
-void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet){
+int getInaccessibleFiles(const char *ip, const Rule *rules, int ruleCount, const char **files, int fileCount, const char ***inaccessibleFiles) {
+    *inaccessibleFiles = (const char **)malloc(sizeof(const char *) * fileCount);
+    int inaccessibleCount = 0;
+
+    for (int i = 0; i < fileCount; i++) {
+        const char *file = files[i];
+        int accessGranted = 0;
+
+        /*
+        접근 불가시 inaccessible배열에 추가
+        */
+        for (int j = 0; j < ruleCount; j++) {
+            if (strcmp(rules[j].path, file) == 0) {
+                if ((rules[j].listType == WHITELIST && strcmp(rules[j].ip, ip) == 0) ||
+                    (rules[j].listType == BLACKLIST && strcmp(rules[j].ip, ip) != 0)) {
+                    accessGranted = 1;  
+                }
+                break;
+            }
+        }
+
+        if (!accessGranted) {
+            (*inaccessibleFiles)[inaccessibleCount] = file;
+            inaccessibleCount++;
+        }
+    }
+
+    return inaccessibleCount;
+}
+
+void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
+    //패킷에서 아이피 주소와 파일경로 추출
     const struct ip *ipHeader = (struct ip *)(packet + 14);
     const char *srcIp = inet_ntoa(ipHeader->ip_src);
     const char *dstIp = inet_ntoa(ipHeader->ip_dst);
 
-    char filePath[MAX_PATH_LENGTH];
-    // 패킷에서 파일 경로 추출하는 코드
+    char filePath[MAX_PATH_LENGTH]; //파일경로
+    
 
-    // 규칙에 기반하여 액세스 확인 (0 or 1)
-    int accessGranted = checkAccess(srcIp, filePath, (const Rule *)userData, *(int *)pkthdr);
-    if (accessGranted) {
-        // 패킷 처리
-    } else {
-        // 액세스 거부, 패킷을 삭제 tcpkill 뭐 아무거나..
+    // 파일목록
+    const char *files[] = {
+        /*
+        "/path/to/file1.txt",
+        "/path/to/file2.txt",
+        "/path/to/file3.txt"
+        */
+    };
+    int fileCount = sizeof(files) / sizeof(files[0]); 
+
+    //접근 가능파일
+    const Rule *rules = (const Rule *)userData;
+    int ruleCount = *(int *)pkthdr;
+    const char **inaccessibleFiles;
+    int inaccessibleCount = getInaccessibleFiles(srcIp, rules, ruleCount, files, fileCount, &inaccessibleFiles);
+    //함수호출 getInaccessibleFiles 접근가능 파일목록 반환
+    // 접근가능 파일목록 추출
+    printf("Inaccessible files for IP %s:\n", srcIp);
+    for (int i = 0; i < inaccessibleCount; i++) {
+        printf("- %s\n", inaccessibleFiles[i]);
     }
+
+    // 접근 불가능한 파일 목록 메모리 해제
+    free(inaccessibleFiles);
 }
 
 
 
 
-
-int main(){
-    // 설정 파일을 읽어옴
-    //패킷 캡쳐
-}
