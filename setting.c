@@ -61,26 +61,23 @@ void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
 
     json_decref(root);     
 }
+//config파일로 수정
+int getInaccessibleFiles(const char *ip, const char *configFile, const char ***inaccessibleFiles) {
+    Rule *rules;
+    int ruleCount;
+    parseConfigFile(configFile, &rules, &ruleCount);
 
-int getInaccessibleFiles(const char *ip, const Rule *rules, int ruleCount, const char **files, int fileCount, const char ***inaccessibleFiles) {
+    int fileCount = ruleCount;
     *inaccessibleFiles = (const char **)malloc(sizeof(const char *) * fileCount);
     int inaccessibleCount = 0;
 
     for (int i = 0; i < fileCount; i++) {
-        const char *file = files[i];
+        const char *file = rules[i].path;
         int accessGranted = 0;
 
-        /*
-        접근 불가시 inaccessible배열에 추가
-        */
-        for (int j = 0; j < ruleCount; j++) {
-            if (strcmp(rules[j].path, file) == 0) {
-                if ((rules[j].listType == WHITELIST && strcmp(rules[j].ip, ip) == 0) ||
-                    (rules[j].listType == BLACKLIST && strcmp(rules[j].ip, ip) != 0)) {
-                    accessGranted = 1;  
-                }
-                break;
-            }
+        if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
+            (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
+            accessGranted = 1;
         }
 
         if (!accessGranted) {
@@ -88,6 +85,8 @@ int getInaccessibleFiles(const char *ip, const Rule *rules, int ruleCount, const
             inaccessibleCount++;
         }
     }
+
+    free(rules);
 
     return inaccessibleCount;
 }
