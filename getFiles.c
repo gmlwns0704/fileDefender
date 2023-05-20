@@ -22,10 +22,10 @@ bool findfile(int filecount, char* path[]){
     for(int i = 0 ; i < filecount ; i++)
     {
         //포트 번호로 프로세스 아이디 받아오기
-        //getProcInfoByPort(&procIn, 22);
+        getProcInfoByPort(&procIn, 22);
 
-        //PID = procIn.pid;
-        sprintf(buffer, "lsof +p %d | tr -s ' ' | cut -d' ' -f9 ", 3827);
+        PID = procIn.pid;
+        sprintf(buffer, "lsof +p %d | tr -s ' ' | cut -d' ' -f9 ", PID);
 
         fp = popen(buffer, "r");
         if (fp == NULL)
