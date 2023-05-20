@@ -4,9 +4,9 @@
 #include <string.h>
 #include <stdbool.h>
 
-void protectfile(char* path){
+/*void protectfile(char* path){
 
-}
+}*/
 
 bool findfile(int filecount, char* path[]){
     FILE* fp;
