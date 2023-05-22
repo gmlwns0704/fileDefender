@@ -4,12 +4,40 @@
 #include <string.h>
 #include <stdbool.h>
 
-/*void protectfile(char* path){
+//파일 목록 저장 구조체
+typedef struct {
+    int check;
+    char path[BUFSIZ];
+}savefile;
 
-}*/
+//임시 파일 목록 저장
+char* filebuffer[1024];
 
+//파일 목록 리턴 함수
+char** protectfile(savefile* files[]){
+    for(int i = 0 ; i < sizeof(filebuffer) / sizeof(char *) ; i ++)
+    {
+        filebuffer[i] = malloc(sizeof(char *));
+    }
+    for(int i = 0 ; i < 1024 ; i++)
+    {
+        if(files[i]->check != 0)
+            filebuffer[i] = files[i]->path;
+    }
+
+    return filebuffer;
+}
+
+//검색한 파일 존재 유무 찾는 함수
 bool findfile(int filecount, char* path[]){
+    char** temp;
     FILE* fp;
+    savefile* files[1024];
+    for(int j = 0 ; j < sizeof(files) / sizeof(savefile *) ; j++)
+    {
+        files[j] = malloc(sizeof(savefile)); 
+        files[j]->check = 0;
+    }
     struct procInfo procIn;
     int PID;
     //파일 출력하는 버퍼
@@ -17,8 +45,7 @@ bool findfile(int filecount, char* path[]){
     //sprintf 임시 버퍼
     char buffer[BUFSIZ];
     int cnt = 0;
-    char* save[BUFSIZ];
-    char temp[BUFSIZ];
+
     for(int i = 0 ; i < filecount ; i++)
     {
         //포트 번호로 프로세스 아이디 받아오기
@@ -33,20 +60,35 @@ bool findfile(int filecount, char* path[]){
             perror("erro : ");
         }
 
-        while (fgets(buff, 100, fp) != NULL)
+        while (fgets(buff, 200, fp) != NULL)
         {
             if(strlen(path[i]) != 0)
             {
                 if(strncmp(path[i], buff, strlen(path[i])) == 0)
                 {
                     printf("Path%d -> 검색된 파일 이름 : %s\n", i+1, buff);
-                    /*strcpy(temp, buff);
-                    save[i] = temp;*/
+                    for(int j = 0 ; j < cnt+1 ; j++)
+                    {
+                        if(files[j]->check == 0)
+                        {
+                            strcpy(files[j]->path, buff);
+                            files[j]->check = 1;
+                            break;
+                        } 
+                    }
                     cnt++;
                 }
             }
         }
     }
+
+    //파일 목록 받아오는 함수 호출 (이 함수는 필요할 때 호출해서 쓰면 됨)
+    temp = protectfile(files);
+    //파일 목록 출력 가능
+    /*for(int j = 0 ; j < cnt + 1 ; j++)
+    {
+        printf("%s", temp[j]);
+    }*/
 
     pclose(fp);
     if(cnt > 0)
