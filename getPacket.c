@@ -2,6 +2,7 @@
 #include "header/getProc.h"
 #include "header/tcpkiller.h"
 #include "header/clientManage.h"
+#include "header/setting.h"
 #include <time.h>
 #include <dirent.h>
 
@@ -76,7 +77,7 @@ struct tcphdr
 /*
 패킷 캡쳐 루프 시작
 */
-#define LOOPCNT 100
+#define LOOPCNT -1
 //https://www.tcpdump.org/pcap.html
 void packetCapture(char* dev, char* filter){
 
@@ -98,7 +99,7 @@ void packetCapture(char* dev, char* filter){
     }
 
     if(pcap_compile(pcd, &fp, filter, 0, net) < 0){
-        perror("pcap_compile");
+        pcap_perror(pcd, "pcap_compile");
         exit(1);
     }
     if(pcap_setfilter(pcd, &fp) < 0) {
@@ -118,17 +119,23 @@ void packetCapture(char* dev, char* filter){
     struct pcapLoopArgs args;
     args.clHeadPtr = &clHead;
     args.interface = dev;
+    // 설정파일에 대한 정보도 전달
+    parseConfigFile("config.json", &(args.rules), &(args.ruleCount));
     // pcap_loop(pcd, 반복회수, 콜백, 콜백 args)
     pcap_loop(pcd, LOOPCNT, packetCallback, (u_char*)&args);
+
+    free(args.rules);
 }
 
 /*
 패킷 캡쳐 콜백
 */
 void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
-    // 코드 편의상 args로 받은 값들의 포인터 별도 생성
+    // 코드 편의상 args로 받은 값들의 포인터 or 복사값 별도 생성
     struct clientList* head = ((struct pcapLoopArgs*)args)->clHeadPtr;
     const char* interface = ((struct pcapLoopArgs*)args)->interface;
+    const Rule* rules = ((struct pcapLoopArgs*)args)->rules;
+    const int ruleCount = ((struct pcapLoopArgs*)args)->ruleCount;
 
     struct ether_header* etherHdr;
     struct ip* ipHdr;
@@ -157,7 +164,7 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
 
         struct procInfo info;
         // 프로세스를 발견하지 못함
-        if(getProcInfoByPort(&info, ntohs(tcpHdr->th_dport)) == NULL){
+        if(getProcInfoByPort(&info, ntohs(tcpHdr->th_dport)) == NULL && getProcInfoByPort(&info, ntohs(tcpHdr->th_sport)) == NULL){
             return;
         }
         
@@ -182,18 +189,6 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
         // payload size = ip패킷 길이 - tcp헤더 길이 - ip헤더 길이
         // ipHdr는 ntohs을 씌워줘야함, 왜 얘만 그런지는 모르겠음
         u_short payloadLen = ntohs(ipHdr->ip_len) - (tcpHdr->th_off * 4) - (ipHdr->ip_hl * 4);
-
-        #ifdef DEBUG
-        printf("ip_len: %d bytes\nth_off: %d bytes\nip_hl: %d bytes\n",
-        ntohs(ipHdr->ip_len),
-        tcpHdr->th_off*4,
-        ipHdr->ip_hl*4);
-        printf("payload length: %d\n", payloadLen);
-        printf("print payload:\n");
-        for(int i = 0; i < payloadLen; i++)
-            printf("0x%02x ", payload[i]);
-        printf("\n");
-        #endif
         
         #ifdef DEBUG
         printProcInfo(&info);
@@ -207,101 +202,130 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
             printf("%d ", childPids[i]);
         }
         printf("\n");
+        printf("client info: %s\n", inet_ntoa(clInfo.addr));
         #endif
 
-        printf("client info: %s\n", inet_ntoa(clInfo.addr));
         // 정보조회 완료 후 클라이언트 정보를 리스트에 추가
         if(newClient(head, &clInfo) == 0){
+            #ifdef DEBUG
             printf("old client...\n");
+            #endif
         }
         else{
+            #ifdef DEBUG
             printf("new client...\n");
+            #endif
         }
 
-        if(judgePacket(&info, &clInfo)){
-            // isDataInFile(payload, payloadLen, )
-            /*
-            메인함수에서 이미 initController를 수행했다는 가정
-            tcpkill 명령
-            */
-            // connInfoCommand(t_blockIpAndPort, &connInfo);
+        /*
+        해당 클라이언트가 접근하면 안되는 파일 목록 얻어오기
+        char** 버퍼에 저장
+        */
+        char** inAccessibleFiles;
+        int inAccCount = getInaccessibleFiles(inet_ntoa(clInfo.addr), "config.json", (const char***)&inAccessibleFiles);
+        #ifdef DEBUG
+        if(inAccCount == 0){
+            printf("this client can access any file\n");
         }
-    }
-}
-
-
-/*
-procInfo, clInfo를 기반으로 패킷의 적합성 판단
-패킷이 통신하는 프로세스가 부적절한 파일에 접근했는지 확인
-적합하다면 1 리턴
-부적합하다면 0 리턴
-*/
-int judgePacket(struct procInfo* procInfo, struct client clInfo, const char* payload, size_t payloadLen){
-    /*
-    설정파일에서 clInfo가 접근하면 안되는 path 목록 얻어오기
-    */
-
-    /*
-    이전에 getProcInfoByPort로 얻어온 프로세스 정보의 pid로 파일 접근여부 확인
-    자식 프로세스들도 같이 조회할 예정
-    */
-   
-    // 프로세스가 보호대상 파일에 접근하지 않음
-    if(findfile(procInfo->pid, "/home/ubuntuhome/sftp/") == 0){
-        return 0;
-    }
-
-    /*
-    프로세스가 접근한 보호대상 파일들 중, 패킷의 데이터와 일치하는 것이 있는지 확인
-    */
-    /*
-    // 각 path에 대하여
-    for(int i = 0; i < 'path의 개수'; i++){
-        // 데이터가 path파일의 일부인지 확인
-        if(isDataInFile(payload, payloadLen, paths[i])){
-            // 차단
-            connInfoCommnad(t_blockIp, clInfo);
+        else{
+            printf("this client cannot access to...\n");
         }
-    }
-    */
+        for(int i = 0; i < inAccCount; i++){
+            printf("inAccFile[%d]: %s\n", i, inAccessibleFiles[i]);
+        }
+        #endif
 
-    printf("this process tried to access file!\n");
-    return 1;
+        /*
+        lsof로 해당 파일 목록중 걸리는 파일이 있는지 확인
+        char** 버퍼에 저장
+        inAccessibleFiles 를 입력으로 사용
+        */
+
+        /*
+        있다면 payload가 그 파일에 접근했는지 비교
+        for문으로 isDataInFile()
+        */
+
+        // lsof가 완성될때까지 임시 파일로 테스트
+        if(payloadLen > MINPAYLOADLEN && 
+            isDataInFile(payload, payloadLen, "/home/ubuntuhome/test/THISFILE.txt") > payloadLen * PAYLOADSAMERATE){
+            connInfoCommand(t_blockIpAndPort, &connInfo);
+        }
+
+        #ifdef DEBUG
+        printf("ip_len: %d bytes\nth_off: %d bytes\nip_hl: %d bytes\n",
+        ntohs(ipHdr->ip_len),
+        tcpHdr->th_off*4,
+        ipHdr->ip_hl*4);
+        printf("payload length: %d\n", payloadLen);
+        printf("print payload:\n");
+        for(int i = 0; i < payloadLen; i++)
+            printf("%c", payload[i]);
+        printf("\n");
+        #endif
+    }
 }
 
 /*
 데이터가 대상 파일의 일부인지 확인
+diff 사용하기?
 */
 int isDataInFile(const char* payload, size_t size, const char* path){
-    FILE* f = fopen(path, "r");
+    FILE* f = fopen(path, "rb");
     if(f == NULL){
         perror("fopen");
         return 0;
     }
-    char fbyte;
+    unsigned char fbyte;
     size_t byteCount = 0;
+    size_t maxByteCount = 0;
 
     // size만큼 일치하는 내용 발견 or 파일의 끝 도달시 종료
-    while(byteCount < size && !feof(f)){
+    for(int i = 0; byteCount < size && !feof(f) ; i++){
+        
         // 1byte씩 읽음
         fread(&fbyte, 1, 1, f);
-        #ifdef DEBUG
-        printf("%02x vs %02x\n", fbyte, *(payload + byteCount));
-        #endif
+
+        // '\n', '\r'등 일부 문자는 스킵
+        int isContinue = 0;
+        switch(fbyte){
+            case '\n': case '\r': case '\0':
+                isContinue = 1;
+        }
+        switch(*(payload+byteCount)){
+            case '\n': case '\r': case '\0':
+                fseek(f, -1, SEEK_CUR);
+                byteCount++;
+                isContinue = 1;
+        }
+        if(isContinue){
+            continue;
+        }
         // payload의 1byte를 fbyte와 비교
-        if(*(payload + byteCount) == fbyte){
+        if(*((unsigned char*)(payload + byteCount)) == (unsigned char)fbyte){
+            #ifdef DEBUG
+            printf("%c", *((char*)&fbyte));
+            #endif
             // byteCount 1증가
             byteCount++;
         }
         else{
+            #ifdef DEBUG
+            printf("\n!%02x(%c) != %02x(%c)!", fbyte, *((char*)&fbyte), *((unsigned char*)(payload + byteCount)), payload[byteCount]);
+            #endif
             // byteCount초기화
+            maxByteCount = (maxByteCount > byteCount) ? maxByteCount : byteCount;
             byteCount = 0;
-            // 파일포인터 다시 앞으로 한칸
-            // fseek(f, -1, SEEK_CUR);
         }
     }
+    // 마지막에 한번 더 갱신 (한번도 틀린적이 없을 경우 대비)
+    maxByteCount = (maxByteCount > byteCount) ? maxByteCount : byteCount;
+
+    #ifdef DEBUG
+    printf("maxByteCount: %ld\n", maxByteCount);
+    #endif
 
     fclose(f);
-    // byteCount == size 라면 일치하는 것 발견, 아니라면 발견X
-    return (byteCount == size);
+    // byteCount >= size 라면 일치하는 것 발견, 아니라면 발견X
+    return maxByteCount;
 }

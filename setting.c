@@ -91,41 +91,37 @@ int getInaccessibleFiles(const char *ip, const char *configFile, const char ***i
     return inaccessibleCount;
 }
 
-void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
-    //패킷에서 아이피 주소와 파일경로 추출
-    const struct ip *ipHeader = (struct ip *)(packet + 14);
-    const char *srcIp = inet_ntoa(ipHeader->ip_src);
-    const char *dstIp = inet_ntoa(ipHeader->ip_dst);
+// void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
+//     //패킷에서 아이피 주소와 파일경로 추출
+//     const struct ip *ipHeader = (struct ip *)(packet + 14);
+//     const char *srcIp = inet_ntoa(ipHeader->ip_src);
+//     const char *dstIp = inet_ntoa(ipHeader->ip_dst);
 
-    char filePath[MAX_PATH_LENGTH]; //파일경로
+//     char filePath[MAX_PATH_LENGTH]; //파일경로
     
 
-    // 파일목록
-    const char *files[] = {
-        /*
-        "/path/to/file1.txt",
-        "/path/to/file2.txt",
-        "/path/to/file3.txt"
-        */
-    };
-    int fileCount = sizeof(files) / sizeof(files[0]); 
+//     // 파일목록
+//     const char *files[] = {
+//         /*
+//         "/path/to/file1.txt",
+//         "/path/to/file2.txt",
+//         "/path/to/file3.txt"
+//         */
+//     };
+//     int fileCount = sizeof(files) / sizeof(files[0]); 
 
-    //접근 가능파일
-    const Rule *rules = (const Rule *)userData;
-    int ruleCount = *(int *)pkthdr;
-    const char **inaccessibleFiles;
-    int inaccessibleCount = getInaccessibleFiles(srcIp, rules, ruleCount, files, fileCount, &inaccessibleFiles);
-    //함수호출 getInaccessibleFiles 접근가능 파일목록 반환
-    // 접근가능 파일목록 추출
-    printf("Inaccessible files for IP %s:\n", srcIp);
-    for (int i = 0; i < inaccessibleCount; i++) {
-        printf("- %s\n", inaccessibleFiles[i]);
-    }
+//     //접근 가능파일
+//     const Rule *rules = (const Rule *)userData;
+//     int ruleCount = *(int *)pkthdr;
+//     const char **inaccessibleFiles;
+//     int inaccessibleCount = getInaccessibleFiles(srcIp, rules, ruleCount, files, fileCount, &inaccessibleFiles);
+//     //함수호출 getInaccessibleFiles 접근가능 파일목록 반환
+//     // 접근가능 파일목록 추출
+//     printf("Inaccessible files for IP %s:\n", srcIp);
+//     for (int i = 0; i < inaccessibleCount; i++) {
+//         printf("- %s\n", inaccessibleFiles[i]);
+//     }
 
-    // 접근 불가능한 파일 목록 메모리 해제
-    free(inaccessibleFiles);
-}
-
-
-
-
+//     // 접근 불가능한 파일 목록 메모리 해제
+//     free(inaccessibleFiles);
+// }

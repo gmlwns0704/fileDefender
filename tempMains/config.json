@@ -1,0 +1,12 @@
+[
+    {
+        "ip": "127.0.0.1",
+        "path": "/home/ubuntuhome/sftp/",
+        "list_type": "blacklist"
+    },
+    {
+        "ip": "192.168.219.103",
+        "path": "/home/ubuntuhome/test/",
+        "list_type": "whitelist"
+    }
+]
