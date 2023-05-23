@@ -110,10 +110,12 @@ void packetCapture(char* dev, char* filter){
 
     // loop 시작
     struct clientList clHead;
+    memset(&clHead, 0, sizeof(clHead));
     clHead.next = NULL;
     // head는 loopback
     inet_aton("127.0.0.1", &(clHead.clInfo.addr));
     clHead.clInfo.lastTime = 0;
+    clHead.clInfo.suspect = 0;
 
     // pcap에서 쓸 매개변수 전달을 위한 버퍼 구성
     struct pcapLoopArgs args;
@@ -124,7 +126,7 @@ void packetCapture(char* dev, char* filter){
     // pcap_loop(pcd, 반복회수, 콜백, 콜백 args)
     pcap_loop(pcd, LOOPCNT, packetCallback, (u_char*)&args);
 
-    free(args.rules);
+    // free(args.rules);
 }
 
 /*
@@ -194,8 +196,8 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
         printProcInfo(&info);
         #endif
 
-        int childPids[10];
-        int childsNum = getChildPids(info.pid, childPids, 10);
+        int* childPids;
+        int childsNum = getChildPids(info.pid, &childPids);
         #ifdef DEBUG
         printf("printing %d child pids...\n", childsNum);
         for(int i = 0; i < childsNum; i++){
@@ -272,6 +274,7 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
         #endif
 
         //free
+        free(childPids);
         free(inAccessibleFiles);
     }
 }

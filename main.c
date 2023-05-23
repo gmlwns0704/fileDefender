@@ -10,19 +10,22 @@ int main(int argc, char** argv){
         return 0;
     }
     // tcpkill 관리 프로세스 생성
-    initController();
+    int controllerPid = initController();
+    printf("controller pid: %d\n", controllerPid);
 
     // 인터페이스별로 캡쳐 프로세스 생성
     int* pids = malloc(sizeof(int)*(argc-1));
-    for(int i = 1; i < argc; i++){
-        pid[i-1] = fork();
-        if(pid[i-1] == 0){
-            packetCapture(argv[i], "tcp");
-            break;
+    for(int i = 0; i < argc-1; i++){
+        pids[i] = fork();
+        if(pids[i] == 0){
+            packetCapture(argv[i+1], "tcp");
+            return 0;
         }
+        else
+            printf("%s capture pid: %d\n", argv[i+1], pids[i]);
     }
 
     for(int i = 0; i < argc-1; i++){
-        wait(pid[i-1]);
+        wait(pids[i]);
     }
 }

@@ -2,10 +2,10 @@
 #include <stdio.h>
 
 int main(int argc, char** argv){
-    int pids[100];
+    int* pids;
     int ppid = atoi(argv[1]);
 
-    int childNum = getChildPids(ppid, pids, 100);
+    int childNum = getChildPids(ppid, &pids);
     if(childNum < 0){
         fprintf(stderr, "childNum is %d, child not exist or error\n", childNum);
         return 0;

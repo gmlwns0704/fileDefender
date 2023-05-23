@@ -163,24 +163,39 @@ struct procInfo* getProcInfoByPort(struct procInfo* info, int port){
 오류 발생시 마이너스값 리턴
 자식 프로세스의 개수 리턴
 */
-int getChildPids(int ppid, int* childPids, int maxCnt){
-    // 자식 프로세스들이 저장되는 파일 읽음
-    char path[BUFSIZ];
-    sprintf(path, "/proc/%d/task/%d/children", ppid, ppid);
+int getChildPids(int ppid, int** childPids){
+
+    int totalCount = 1;
+    int pidStack[128];
+    memset(pidStack, 0, sizeof(pidStack));
+    pidStack[0] = ppid;
+
+    for(int stackPtr = 0; stackPtr < totalCount; stackPtr++){
+        ppid = pidStack[stackPtr];
+        // 자식 프로세스들이 저장되는 파일 읽음
+        char path[BUFSIZ];
+        sprintf(path, "/proc/%d/task/%d/children", ppid, ppid);
     
-    FILE* f = fopen(path, "r");
-    if (f == NULL){
-        perror("return -1: fopen");
-        return -1;
+        FILE* f = fopen(path, "r");
+        if (f == NULL)
+            continue;
+
+        // 파일에서 %d단위로 읽어옴
+        while(!feof(f)){
+            fscanf(f, "%d ", &(pidStack[totalCount]));
+            // 제대로된 정수값이 저장된게 아니면 탈출
+            if(!(pidStack[totalCount]))
+                break;
+            // 스택에 발견한 child pid 추가, stackPtr이동
+            totalCount++;
+        }
+
+        fclose(f);
     }
 
-    // 파일에서 %d단위로 읽어옴
-    int count;
-    for(count = 0; !feof(f) && count < maxCnt; count++){
-        fscanf(f, "%d ", childPids+count);
-    }
+    *childPids = malloc(sizeof(int)*totalCount);
+    memcpy(*childPids, pidStack, sizeof(int)*totalCount);
 
-    fclose(f);
-    return count;
+    return totalCount;
 }
 
