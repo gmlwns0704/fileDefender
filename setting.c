@@ -91,6 +91,37 @@ int getInaccessibleFiles(const char *ip, const char *configFile, const char ***i
     return inaccessibleCount;
 }
 
+// 메모리문제 해결
+// rules를 내부에서 정의하지 않고 직접 받아옴
+int getInaccessibleFilesV2(const char *ip, const Rule* rules, int ruleCount, const char ***inaccessibleFiles) {
+    // Rule *rules;
+    // int ruleCount;
+    // parseConfigFile(configFile, &rules, &ruleCount);
+
+    int fileCount = ruleCount;
+    *inaccessibleFiles = (const char **)malloc(sizeof(const char *) * fileCount);
+    int inaccessibleCount = 0;
+
+    for (int i = 0; i < fileCount; i++) {
+        const char *file = rules[i].path;
+        int accessGranted = 0;
+
+        if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
+            (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
+            accessGranted = 1;
+        }
+
+        if (!accessGranted) {
+            (*inaccessibleFiles)[inaccessibleCount] = file;
+            inaccessibleCount++;
+        }
+    }
+
+    //free(rules);
+
+    return inaccessibleCount;
+}
+
 // void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
 //     //패킷에서 아이피 주소와 파일경로 추출
 //     const struct ip *ipHeader = (struct ip *)(packet + 14);

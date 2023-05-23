@@ -222,16 +222,17 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
         char** 버퍼에 저장
         */
         char** inAccessibleFiles;
-        int inAccCount = getInaccessibleFiles(inet_ntoa(clInfo.addr), "config.json", (const char***)&inAccessibleFiles);
+        // int inAccCount = getInaccessibleFiles(inet_ntoa(clInfo.addr), "config.json", (const char***)&inAccessibleFiles);
+        int inAccCount = getInaccessibleFilesV2(inet_ntoa(clInfo.addr), rules, ruleCount, (const char***)&inAccessibleFiles);
         #ifdef DEBUG
         if(inAccCount == 0){
             printf("this client can access any file\n");
         }
         else{
             printf("this client cannot access to...\n");
-        }
-        for(int i = 0; i < inAccCount; i++){
+            for(int i = 0; i < inAccCount; i++){
             printf("inAccFile[%d]: %s\n", i, inAccessibleFiles[i]);
+        }
         }
         #endif
 
@@ -248,8 +249,14 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
 
         // lsof가 완성될때까지 임시 파일로 테스트
         if(payloadLen > MINPAYLOADLEN && 
-            isDataInFile(payload, payloadLen, "/home/ubuntuhome/test/THISFILE.txt") > payloadLen * PAYLOADSAMERATE){
-            connInfoCommand(t_blockIpAndPort, &connInfo);
+            isDataInFile(payload, payloadLen, "/home/ubuntuhome/nwProj/project/getPacket.c") > payloadLen * PAYLOADSAMERATE){
+            if(!getSuspect(head, &clInfo)){
+                #ifdef DEBUG
+                printf("block this client...\n");
+                #endif
+                connInfoCommand(t_blockIp, &connInfo);
+                setSuspect(head, &clInfo, 1);
+            }
         }
 
         #ifdef DEBUG
@@ -263,6 +270,9 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
             printf("%c", payload[i]);
         printf("\n");
         #endif
+
+        //free
+        free(inAccessibleFiles);
     }
 }
 
@@ -287,20 +297,10 @@ int isDataInFile(const char* payload, size_t size, const char* path){
         fread(&fbyte, 1, 1, f);
 
         // '\n', '\r'등 일부 문자는 스킵
-        int isContinue = 0;
-        switch(fbyte){
-            case '\n': case '\r': case '\0':
-                isContinue = 1;
-        }
-        switch(*(payload+byteCount)){
-            case '\n': case '\r': case '\0':
-                fseek(f, -1, SEEK_CUR);
-                byteCount++;
-                isContinue = 1;
-        }
-        if(isContinue){
-            continue;
-        }
+        while((fbyte == '\r') && !feof(f))
+            fread(&fbyte, 1, 1, f);
+        while(byteCount < size && (payload[byteCount] == '\r'))
+            byteCount++;
         // payload의 1byte를 fbyte와 비교
         if(*((unsigned char*)(payload + byteCount)) == (unsigned char)fbyte){
             #ifdef DEBUG
@@ -310,7 +310,7 @@ int isDataInFile(const char* payload, size_t size, const char* path){
             byteCount++;
         }
         else{
-            #ifdef DEBUG
+            #ifdef DEBUG2
             printf("\n!%02x(%c) != %02x(%c)!", fbyte, *((char*)&fbyte), *((unsigned char*)(payload + byteCount)), payload[byteCount]);
             #endif
             // byteCount초기화

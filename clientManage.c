@@ -63,7 +63,7 @@ int newClient(struct clientList* head, struct client* target){
     if(findClient(head, target))
         return 0;
     // 새로운 클라이언트임
-    struct clientList* tmp = head;
+    struct clientList* tmp = malloc(sizeof(struct clientList));
     // tmp->next를 2번째 노드로
     tmp->next = head->next;
     // target내용 복사
@@ -82,6 +82,27 @@ int updateClient(struct clientList* head, struct client* target){
         if(clIsSame(&(tmp->clInfo), target)){
             memcpy(&(tmp->clInfo), target, sizeof((tmp->clInfo)));
             return 1;
+        }
+    }
+    // 존재하지 않음
+    return 0;
+}
+
+int setSuspect(struct clientList* head, struct client* target, int suspect){
+    for(struct clientList* tmp = head; tmp != NULL; tmp = tmp->next){
+        if(clIsSame(&(tmp->clInfo), target)){
+            tmp->clInfo.suspect = suspect;
+            return tmp->clInfo.suspect;
+        }
+    }
+    // 존재하지 않음
+    return 0;
+}
+
+int getSuspect(struct clientList* head, struct client* target){
+    for(struct clientList* tmp = head; tmp != NULL; tmp = tmp->next){
+        if(clIsSame(&(tmp->clInfo), target)){
+            return tmp->clInfo.suspect;
         }
     }
     // 존재하지 않음

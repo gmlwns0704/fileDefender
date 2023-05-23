@@ -24,4 +24,6 @@ int clIsSame(struct client* a, struct client* b);
 int findClient(struct clientList* head, struct client* target);
 int newClient(struct clientList* head, struct client* target);
 int updateClient(struct clientList* head, struct client* target);
+int getSuspect(struct clientList* head, struct client* target);
+int setSuspect(struct clientList* head, struct client* target, int suspect);
 time_t getLastTime(struct clientList* head, struct client* target);

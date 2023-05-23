@@ -38,3 +38,5 @@ void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount);
  접근불가 파일목록 반환
 */
 int getInaccessibleFiles(const char *ip, const char *configFile, const char ***inaccessibleFiles);
+// 메모리문제 해결 버전
+int getInaccessibleFilesV2(const char *ip, const Rule* rules, int ruleCount, const char ***inaccessibleFiles);
