@@ -10,6 +10,7 @@ struct client{
     struct in_addr addr; // ip주소
     time_t lastTime; // 마지막 통신 시간
     int suspect; // 의심여부
+    int ban;
 };
 
 struct clientList{
@@ -25,5 +26,7 @@ int findClient(struct clientList* head, struct client* target);
 int newClient(struct clientList* head, struct client* target);
 int updateClient(struct clientList* head, struct client* target);
 int getSuspect(struct clientList* head, struct client* target);
+int getBan(struct clientList* head, struct client* target);
 int setSuspect(struct clientList* head, struct client* target, int suspect);
+int setBan(struct clientList* head, struct client* target, int ban);
 time_t getLastTime(struct clientList* head, struct client* target);

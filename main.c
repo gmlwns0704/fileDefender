@@ -5,8 +5,8 @@
 #include "header/tcpkiller.h"
 
 int main(int argc, char** argv){
-    if(argc == 1){
-        printf("usage: %s [interfaces...]\n", argv[0]);
+    if(argc == 1 || (argc-1)%2 == 1){
+        printf("usage: %s [interfaces, \"filter\"]\n", argv[0]);
         return 0;
     }
     // tcpkill 관리 프로세스 생성
@@ -15,17 +15,21 @@ int main(int argc, char** argv){
 
     // 인터페이스별로 캡쳐 프로세스 생성
     int* pids = malloc(sizeof(int)*(argc-1));
-    for(int i = 0; i < argc-1; i++){
+    for(int i = 0; i < (argc-1)/2; i++){
         pids[i] = fork();
         if(pids[i] == 0){
-            packetCapture(argv[i+1], "tcp");
+            packetCapture(argv[2*i + 1], argv[2*i + 2]);
             return 0;
         }
         else
-            printf("%s capture pid: %d\n", argv[i+1], pids[i]);
+            printf("interface: %s, filter: %s, capture pid: %d\n", argv[2*i + 1], argv[2*i + 2], pids[i]);
     }
 
     for(int i = 0; i < argc-1; i++){
         wait(pids[i]);
     }
+
+    free(pids);
+
+    return 0;
 }

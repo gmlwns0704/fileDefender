@@ -15,7 +15,6 @@
 static int pipein[2];
 static int pipeout[2];
 static int controllerPid;
-
 /*
 controller 자식 프로세스 실행
 */

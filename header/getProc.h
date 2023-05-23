@@ -19,3 +19,5 @@ void printProcInfo(struct procInfo* info);
 struct procInfo* getProcInfoByPort(struct procInfo* info, int port);
 // int getMulProcInfoByPort(struct procInfo* infoArr, size_t num, int port);
 int getChildPids(int ppid, int** childPids);
+
+int findfile(int pid, int filecount, char*** filelist_buffer, char* path[]);

@@ -99,10 +99,31 @@ int setSuspect(struct clientList* head, struct client* target, int suspect){
     return 0;
 }
 
+int setBan(struct clientList* head, struct client* target, int ban){
+    for(struct clientList* tmp = head; tmp != NULL; tmp = tmp->next){
+        if(clIsSame(&(tmp->clInfo), target)){
+            tmp->clInfo.ban = ban;
+            return tmp->clInfo.ban;
+        }
+    }
+    // 존재하지 않음
+    return 0;
+}
+
 int getSuspect(struct clientList* head, struct client* target){
     for(struct clientList* tmp = head; tmp != NULL; tmp = tmp->next){
         if(clIsSame(&(tmp->clInfo), target)){
             return tmp->clInfo.suspect;
+        }
+    }
+    // 존재하지 않음
+    return 0;
+}
+
+int getBan(struct clientList* head, struct client* target){
+    for(struct clientList* tmp = head; tmp != NULL; tmp = tmp->next){
+        if(clIsSame(&(tmp->clInfo), target)){
+            return tmp->clInfo.ban;
         }
     }
     // 존재하지 않음

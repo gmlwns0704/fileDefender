@@ -1,12 +1,12 @@
 [
     {
-        "ip": "127.0.0.1",
-        "path": "/",
-        "list_type": "whitelist"
+        "ip": "192.168.219.4",
+        "path": "/home/ubuntuhome/nwProj/project/getPacket.c",
+        "list_type": "blacklist"
     },
     {
-        "ip": "127.0.0.1",
-        "path": "/",
-        "list_type": "blacklist"
+        "ip": "192.168.219.4",
+        "path": "/home/ubuntuhome/test/THISFILE.txt",
+        "list_type": "whitelist"
     }
 ]

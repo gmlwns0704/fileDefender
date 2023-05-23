@@ -32,6 +32,13 @@ enum funcTable{
     system(CHKPID_TMP);}
 #endif
 
+#define RMOUT {\
+    int fdnull = open("/dev/null", "w");\
+    dup2(fdnull, 1);\
+    dup2(fdnull, 2);\
+    close(fdnull);\
+}\
+
 /*
 명령 전달을 위한 일정한 포맷
 */
