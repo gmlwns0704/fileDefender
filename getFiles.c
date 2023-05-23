@@ -3,27 +3,22 @@
 #include "header/getProc.h"
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 //검색한 파일 존재 유무 찾는 함수
 int findfile(int pid, int filecount, char*** filelist_buffer, char* path[]){
     FILE* fp;
     int cnt = 0;
     int k = 0;
-    //모든 부모, 자식 프로세스 pid
-    int pids[100] = {pid, };
-    int pid_cnt = 1;
+    int* pids;
+    //자식 프로세스 pid가져오기
+    int pid_cnt = getChildPids(pid, &pids);
     
     struct procInfo procIn;
     //파일 출력하는 버퍼
     char buff[200];
     //sprintf 임시 버퍼
     char buffer[100];
-
-    /*for(int i = 1 ; i < 100; i++)
-    {
-        pids[i] = 자식 프로세스 pid들 받아오는 함수
-        pid_cnt++;
-    }*/
     
     for(int h = 0 ; h < pid_cnt ; h++)
     {
@@ -93,7 +88,7 @@ int main()
     char path1[30] = "/usr/lib";
     char path2[30] = "/home";
     char path3[30] = "/ffd";
-    int pid, flag;
+    int pid = 2596, flag;
     //파일목록 저장 버퍼
     char** buffer;
 
