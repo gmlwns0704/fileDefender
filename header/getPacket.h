@@ -31,4 +31,3 @@ struct pcapLoopArgs{
 void packetCapture(char* dev, char* filter);
 void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 int isDataInFile(const char* payload, size_t size, const char* path);
-int isDataInFileV2(const char* payload, size_t size, const char* path, int parse);

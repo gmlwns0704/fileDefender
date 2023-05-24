@@ -138,12 +138,6 @@ void packetCapture(char* dev, char* filter){
 패킷 캡쳐 콜백
 */
 void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
-    // 코드 편의상 args로 받은 값들의 포인터 or 복사값 별도 생성
-    struct clientList* head = ((struct pcapLoopArgs*)args)->clHeadPtr;
-    const char* interface = ((struct pcapLoopArgs*)args)->interface;
-    const Rule* rules = ((struct pcapLoopArgs*)args)->rules;
-    const int ruleCount = ((struct pcapLoopArgs*)args)->ruleCount;
-
     struct ether_header* etherHdr;
     struct ip* ipHdr;
     int offset = 0;
@@ -161,140 +155,153 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
     offset += ipHdr->ip_hl * 4;
 
     // tcp 패킷
-    if(ipHdr->ip_p == IPPROTO_TCP){
-        struct tcphdr* tcpHdr = (struct tcphdr*)(packet + offset);
-        // tcp헤더의 크기 = data offset * 4 bytes
-        offset += tcpHdr->th_off * 4;
-        
+    if(ipHdr->ip_p != IPPROTO_TCP)
+        return;
+
+    // 코드 편의상 args로 받은 값들의 포인터 or 복사값 별도 생성
+    struct clientList* head = ((struct pcapLoopArgs*)args)->clHeadPtr;
+    const char* interface = ((struct pcapLoopArgs*)args)->interface;
+    const Rule* rules = ((struct pcapLoopArgs*)args)->rules;
+    const int ruleCount = ((struct pcapLoopArgs*)args)->ruleCount;
+    struct tcphdr* tcpHdr = (struct tcphdr*)(packet + offset);
+    
+    // tcp헤더의 크기 = data offset * 4 bytes
+    offset += tcpHdr->th_off * 4;
+    // tcp payload 포인트
+    const u_char* payload = (packet + offset);
+    // payload size = ip패킷 길이 - tcp헤더 길이 - ip헤더 길이
+    // ipHdr->ip_len는 ntohs을 씌워줘야함
+    u_short payloadLen = ntohs(ipHdr->ip_len) - (tcpHdr->th_off * 4) - (ipHdr->ip_hl * 4);
+    // 내용물이 없는 패킷은 무시
+    if(payloadLen < MINPAYLOADLEN)
+        return;
+
+    struct procInfo info;
+    // 소스포트에 해당하는 프로세스가 없음
+    if(getProcInfoByPort(&info, ntohs(tcpHdr->th_sport)) == NULL)
+        return;
+
+    // 클라이언트 정보
+    struct client clInfo;
+    clInfo.addr = ipHdr->ip_dst;
+    clInfo.ban = 0;
+
+    // 정보조회 완료 후 클라이언트 정보를 리스트에 추가
+    if(newClient(head, &clInfo) == 0){
         #ifdef DEBUG
-        printf("pcap: tcp header size: %d\n", tcpHdr->th_off * 4);
-        printf("pcap: dest port: %d\n", ntohs(tcpHdr->th_dport));
+        printf("old client...\n");
         #endif
-
-        #ifdef DEBUG
-            printf("ip_len: %d bytes\nth_off: %d bytes\nip_hl: %d bytes\n",
-            ntohs(ipHdr->ip_len),
-            tcpHdr->th_off*4,
-            ipHdr->ip_hl*4);
-        #endif
-
-        struct procInfo info;
-        // 소스포트가 프로세스 (나가는 패킷)
-        if(getProcInfoByPort(&info, ntohs(tcpHdr->th_sport)) != NULL){
-            // 클라이언트 정보
-            struct client clInfo;
-            clInfo.addr = ipHdr->ip_dst;
-
-            // 정보조회 완료 후 클라이언트 정보를 리스트에 추가
-            if(newClient(head, &clInfo) == 0){
-                #ifdef DEBUG
-                printf("old client...\n");
-                #endif
-            }
-            else{
-                printf("new client %s detected\n", inet_ntoa(clInfo.addr));
-            }
-
-            #ifdef DEBUG
-            printProcInfo(&info);
-            printf("\n");
-            printf("client info: %s\n", inet_ntoa(clInfo.addr));
-            #endif
-
-            // 커넥션 정보 (tcpkill.c 함수들에서 사용)
-            struct connInfo connInfo;
-            connInfo.interface = interface;
-            connInfo.ip = ipHdr->ip_dst;
-            connInfo.port = ntohs(tcpHdr->th_sport);
-            
-            #ifdef DEBUG
-            printf("pcap: tcp header size: %d\n", tcpHdr->th_off * 4);
-            printf("pcap: dest port: %d\n", ntohs(tcpHdr->th_dport));
-            #endif
-
-            /*
-            해당 클라이언트가 접근하면 안되는 파일 목록 얻어오기
-            char** 버퍼에 저장
-            */
-            char** inAccessibleFiles;
-            // int inAccCount = getInaccessibleFiles(inet_ntoa(clInfo.addr), "config.json", (const char***)&inAccessibleFiles);
-            int inAccCount = getInaccessibleFilesV2(inet_ntoa(clInfo.addr), rules, ruleCount, (const char***)&inAccessibleFiles);
-            if(inAccCount == 0){
-                #ifdef DEBUG
-                printf("this client can access any file\n");
-                #endif
-                free(inAccessibleFiles);
-                return;
-            }
-            else{
-                #ifdef DEBUG
-                printf("this client cannot access to...\n");
-                for(int i = 0; i < inAccCount; i++){
-                    printf("inAccFile[%d]: %s\n", i, inAccessibleFiles[i]);
-                }
-                #endif
-            }
-
-            /*
-            lsof로 해당 파일 목록중 걸리는 파일이 있는지 확인
-            char** 버퍼에 저장
-            inAccessibleFiles 를 입력으로 사용
-            */
-            char** accessedFiles;
-            int accessedFilesNum = findfile(info.pid, inAccCount, &accessedFiles, inAccessibleFiles);
-
-            // tcp payload 포인트
-            const u_char* payload = (packet + offset);
-            // payload size = ip패킷 길이 - tcp헤더 길이 - ip헤더 길이
-            // ipHdr는 ntohs을 씌워줘야함, 왜 얘만 그런지는 모르겠음
-            u_short payloadLen = ntohs(ipHdr->ip_len) - (tcpHdr->th_off * 4) - (ipHdr->ip_hl * 4);
-
-            // 접근한 파일이 없음
-            if(accessedFilesNum == 0){
-                for(int i = 0; i < inAccCount; i++){
-                    if(payloadLen > MINPAYLOADLEN &&
-                    isDataInFile(payload, payloadLen, inAccessibleFiles[i]) > payloadLen*PAYLOADSAMERATE){
-                        if(!getBan(head, &clInfo)){
-                            setBan(head, &clInfo, 1);
-                            printf("block client %s, captured payload: %s\n", inet_ntoa(clInfo.addr), payload);
-                            connInfoCommand(t_blockIp, &connInfo);
-                        }
-                    }
-                }
-            }
-            // 접근이 확인된 파일들에 대해 비교
-            for(int i = 0; i < accessedFilesNum; i++){
-                if(payloadLen > MINPAYLOADLEN &&
-                isDataInFile(payload, payloadLen, accessedFiles[i]) > payloadLen*PAYLOADSAMERATE){
-                    if(!getBan(head, &clInfo)){
-                        setBan(head, &clInfo, 1);
-                        printf("block client %s, captured payload: %s\n", inet_ntoa(clInfo.addr), payload);
-                        connInfoCommand(t_blockIp, &connInfo);
-                    }
-                }
-            }
-
-            #ifdef DEBUG
-            printf("ip_len: %d bytes\nth_off: %d bytes\nip_hl: %d bytes\n",
-            ntohs(ipHdr->ip_len),
-            tcpHdr->th_off*4,
-            ipHdr->ip_hl*4);
-            printf("payload length: %d\n", payloadLen);
-            printf("print payload:\n");
-            for(int i = 0; i < payloadLen; i++)
-                printf("%c", payload[i]);
-            printf("\n");
-            #endif
-
-            //free
-            for(int i = 0; i < accessedFilesNum; i++)
-                free(accessedFiles[i]);
-            free(accessedFiles);
-            free(inAccessibleFiles);
-        }
-
-        
     }
+    else{
+        printf("new client %s detected\n", inet_ntoa(clInfo.addr));
+    }
+    // 이미 밴당한 클라이언트라면 스킵
+    if(getBan(head, &clInfo)){
+        #ifdef DEBUG
+        printf("is already banned...\n");
+        #endif
+        return;
+    }
+
+    #ifdef DEBUG
+    printProcInfo(&info);
+    printf("\n");
+    printf("client info: %s\n", inet_ntoa(clInfo.addr));
+    #endif
+
+    // 커넥션 정보 (tcpkill.c 함수들에서 사용)
+    struct connInfo connInfo;
+    connInfo.interface = interface;
+    connInfo.ip = ipHdr->ip_dst;
+    connInfo.port = ntohs(tcpHdr->th_sport);
+
+    /*
+    해당 클라이언트가 접근하면 안되는 파일 목록 얻어오기
+    char** 버퍼에 저장
+    */
+    char** inAccessibleFiles;
+    // int inAccCount = getInaccessibleFiles(inet_ntoa(clInfo.addr), "config.json", (const char***)&inAccessibleFiles);
+    int inAccCount = getInaccessibleFilesV2(inet_ntoa(clInfo.addr), rules, ruleCount, (const char***)&inAccessibleFiles);
+    if(inAccCount == 0){
+        #ifdef DEBUG
+        printf("this client can access any file\n");
+        #endif
+        free(inAccessibleFiles);
+        return;
+    }
+    else{
+        #ifdef DEBUG
+        printf("this client cannot access to...\n");
+        for(int i = 0; i < inAccCount; i++){
+            printf("inAccFile[%d]: %s\n", i, inAccessibleFiles[i]);
+        }
+        #endif
+    }
+
+    /*
+    lsof로 해당 파일 목록중 걸리는 파일이 있는지 확인
+    char** 버퍼에 저장
+    inAccessibleFiles 를 입력으로 사용
+    */
+    char** accessedFiles;
+    int accessedFilesNum = findfile(info.pid, inAccCount, &accessedFiles, inAccessibleFiles);
+
+    #ifdef DEBUG
+    printf("accessedFileNum: %d\n", accessedFilesNum);
+    #endif
+    printf("start check packet (from port %d) (payload %d byte) for %s... ",
+    ntohs(tcpHdr->th_sport),
+    payloadLen,
+    inet_ntoa(clInfo.addr));
+    // 접근한 파일이 없음
+    if(accessedFilesNum == 0){
+        for(int i = 0; i < ruleCount; i++){
+            if(payloadLen > MINPAYLOADLEN &&
+            rules[i].alwaysCheck &&
+            !checkAccess(inet_ntoa(clInfo.addr), rules[i].path, rules, ruleCount) &&
+            isDataInFile(payload, payloadLen, rules[i].path) > payloadLen * rules[i].sameRate){
+                if(!getBan(head, &clInfo)){
+                    setBan(head, &clInfo, 1);
+                    printf("block client %s\n", inet_ntoa(clInfo.addr));
+                    connInfoCommand(t_blockIp, &connInfo);
+                    break;
+                }
+            }
+        }
+    }
+    // 접근이 확인된 파일들에 대해 비교
+    for(int i = 0; i < accessedFilesNum; i++){
+        if(payloadLen > MINPAYLOADLEN &&
+        isDataInFile(payload, payloadLen, accessedFiles[i]) > payloadLen*isAlwaysCheck(inet_ntoa(clInfo.addr), accessedFiles[i], rules, ruleCount)){
+            if(!getBan(head, &clInfo)){
+                setBan(head, &clInfo, 1);
+                printf("block client %s\n", inet_ntoa(clInfo.addr));
+                connInfoCommand(t_blockIp, &connInfo);
+                break;
+            }
+        }
+    }
+
+    #ifdef DEBUG
+    printf("ip_len: %d bytes\nth_off: %d bytes\nip_hl: %d bytes\n",
+    ntohs(ipHdr->ip_len),
+    tcpHdr->th_off*4,
+    ipHdr->ip_hl*4);
+    printf("payload length: %d\n", payloadLen);
+    printf("print payload:\n");
+    for(int i = 0; i < payloadLen; i++)
+        printf("%c", payload[i]);
+    printf("\n");
+    #endif
+
+    //free
+    for(int i = 0; i < accessedFilesNum; i++)
+        free(accessedFiles[i]);
+    free(accessedFiles);
+    free(inAccessibleFiles);
+
+    printf("finished checking\n");
+
 }
 
 /*
@@ -324,9 +331,6 @@ int isDataInFile(const char* payload, size_t size, const char* path){
             byteCount++;
         // payload의 1byte를 fbyte와 비교
         if(*((unsigned char*)(payload + byteCount)) == (unsigned char)fbyte){
-            #ifdef DEBUG
-            printf("%c", *((char*)&fbyte));
-            #endif
             // byteCount 1증가
             byteCount++;
         }
@@ -349,34 +353,4 @@ int isDataInFile(const char* payload, size_t size, const char* path){
     fclose(f);
     // byteCount >= size 라면 일치하는 것 발견, 아니라면 발견X
     return maxByteCount;
-}
-
-int isDataInFileV2(const char* payload, size_t size, const char* path, int parse){
-    char buff[32];
-    char command[BUFSIZ];
-    int foundCount = 0;
-    // parse는 최소 1
-    parse = (parse > 0) ? parse : 1;
-    #ifdef DEBUG
-    printf("parse %ld byte into %d parts\n", size, parse);
-    printf("is %s in %s?\n", payload, path);
-    #endif
-    for(int i = 0; i < parse; i++){
-        sprintf(command, "cat %s | grep %s | wc -l", path, payload + i*(size/parse));
-        FILE* f = popen(buff, command);
-        fread(buff, sizeof(buff), 1, f);
-        if(strlen(buff) <= 0){
-            perror("fread");
-            return 0;
-        }
-
-        #ifdef DEBUG
-        printf("%s in file?: %s\n", payload + i*(size/parse), buff);
-        #endif
-
-        foundCount += (atoi(buff) > 0);
-        pclose(f);
-    }
-
-    return ((double)foundCount / parse > PAYLOADSAMERATE);
 }

@@ -21,28 +21,15 @@ int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCou
 }
 //config.jason에 규칙설정
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <pcap.h>
-#include "header/setting.h"
-
-
-int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCount) {
+double isAlwaysCheck(const char *ip, const char *path, const Rule *rules, int ruleCount) {
     for (int i = 0; i < ruleCount; i++) {
         if (strcmp(rules[i].path, path) == 0) {
-            if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
-                (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
-                return 1;  // 액세스 허용
-            } else {
-                return 0;  // 액세스 거부
-            }
+            // 대상 파일 규칙 찾으면 sameRate 리턴
+            return rules[i].sameRate;
         }
     }
-    return 1;  // 규칙에 일치하는 항목이 없으면 기본적으로 액세스 허용
+    return -1;  // 규칙에 일치하는 항목이 없으면 음수 리턴
 }
-//config.jason에 규칙설정
 
 void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
 {
@@ -67,7 +54,7 @@ void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
         json_t *alwaysCheckObj = json_object_get(ruleObj, "always_check");
         json_t *sameRateObj = json_object_get(ruleObj, "same_rate");
 
-        if (!json_is_string(ipObj) || !json_is_string(pathObj) || !json_is_string(listTypeObj)|| !json_is_string(alwaysCheck)|| !json_is_string(sameRate)) {
+        if (!json_is_string(ipObj) || !json_is_string(pathObj) || !json_is_string(listTypeObj)|| !json_is_integer(alwaysCheckObj)|| !json_is_number(sameRateObj)) {
             fprintf(stderr, "error.\n"); //규칙이 잘못될때
             exit(1);
         }
@@ -89,44 +76,12 @@ void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
         json_number_value()로 json파일에서 값을 읽어와서 구조체에 저장
         ->double형태를 반환함->alwaysCheck는 int형태이므로 형변환(int)
         */
-        rule->alwaysCheck = (int)json_number_value(alwaysCheckObj); 
+        rule->alwaysCheck = json_integer_value(alwaysCheckObj); 
         rule->sameRate = json_number_value(sameRateObj);
     }
 
     json_decref(root);     
 }
-//config파일로 수정
-int getInaccessibleFiles(const char *ip, const char *configFile, const char ***inaccessibleFiles) {
-    Rule *rules;
-    int ruleCount;
-    parseConfigFile(configFile, &rules, &ruleCount);
-
-    int fileCount = ruleCount;
-    *inaccessibleFiles = (const char **)malloc(sizeof(const char *) * fileCount);
-    int inaccessibleCount = 0;
-
-    for (int i = 0; i < fileCount; i++) {
-        const char *file = rules[i].path;
-        int accessGranted = 0;
-
-        if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
-            (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
-            accessGranted = 1;
-        }
-
-        if (!accessGranted) {
-            (*inaccessibleFiles)[inaccessibleCount] = file;
-            inaccessibleCount++;
-        }
-    }
-
-    free(rules);
-
-    return inaccessibleCount;
-}
-
-
-
 //config파일로 수정
 int getInaccessibleFiles(const char *ip, const char *configFile, const char ***inaccessibleFiles) {
     Rule *rules;
@@ -187,38 +142,3 @@ int getInaccessibleFilesV2(const char *ip, const Rule* rules, int ruleCount, con
 
     return inaccessibleCount;
 }
-
-// void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
-//     //패킷에서 아이피 주소와 파일경로 추출
-//     const struct ip *ipHeader = (struct ip *)(packet + 14);
-//     const char *srcIp = inet_ntoa(ipHeader->ip_src);
-//     const char *dstIp = inet_ntoa(ipHeader->ip_dst);
-
-//     char filePath[MAX_PATH_LENGTH]; //파일경로
-    
-
-//     // 파일목록
-//     const char *files[] = {
-//         /*
-//         "/path/to/file1.txt",
-//         "/path/to/file2.txt",
-//         "/path/to/file3.txt"
-//         */
-//     };
-//     int fileCount = sizeof(files) / sizeof(files[0]); 
-
-//     //접근 가능파일
-//     const Rule *rules = (const Rule *)userData;
-//     int ruleCount = *(int *)pkthdr;
-//     const char **inaccessibleFiles;
-//     int inaccessibleCount = getInaccessibleFiles(srcIp, rules, ruleCount, files, fileCount, &inaccessibleFiles);
-//     //함수호출 getInaccessibleFiles 접근가능 파일목록 반환
-//     // 접근가능 파일목록 추출
-//     printf("Inaccessible files for IP %s:\n", srcIp);
-//     for (int i = 0; i < inaccessibleCount; i++) {
-//         printf("- %s\n", inaccessibleFiles[i]);
-//     }
-
-//     // 접근 불가능한 파일 목록 메모리 해제
-//     free(inaccessibleFiles);
-// }
