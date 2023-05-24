@@ -4,13 +4,13 @@
         "path": "/",
         "list_type": "whitelist",
         "always_check": 1,
-        "same_rate": ""
+        "same_rate": "0.8"
     },
     {
         "ip": "127.0.0.1",
         "path": "/",
         "list_type": "blacklist",
         "always_check": 1,
-        "same_rate": ""
+        "same_rate": "0.8"
     }
 ]
