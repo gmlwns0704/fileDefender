@@ -21,6 +21,29 @@ int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCou
 }
 //config.jason에 규칙설정
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <pcap.h>
+#include "header/setting.h"
+
+
+int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCount) {
+    for (int i = 0; i < ruleCount; i++) {
+        if (strcmp(rules[i].path, path) == 0) {
+            if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
+                (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
+                return 1;  // 액세스 허용
+            } else {
+                return 0;  // 액세스 거부
+            }
+        }
+    }
+    return 1;  // 규칙에 일치하는 항목이 없으면 기본적으로 액세스 허용
+}
+//config.jason에 규칙설정
+
 void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
 {
     json_error_t error;
@@ -38,8 +61,13 @@ void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
         json_t *ipObj = json_object_get(ruleObj, "ip");
         json_t *pathObj = json_object_get(ruleObj, "path");
         json_t *listTypeObj = json_object_get(ruleObj, "list_type");
+        /*
+        추가한 구조체 읽어오는 함수
+        */
+        json_t *alwaysCheckObj = json_object_get(ruleObj, "always_check");
+        json_t *sameRateObj = json_object_get(ruleObj, "same_rate");
 
-        if (!json_is_string(ipObj) || !json_is_string(pathObj) || !json_is_string(listTypeObj)) {
+        if (!json_is_string(ipObj) || !json_is_string(pathObj) || !json_is_string(listTypeObj)|| !json_is_string(alwaysCheck)|| !json_is_string(sameRate)) {
             fprintf(stderr, "error.\n"); //규칙이 잘못될때
             exit(1);
         }
@@ -57,10 +85,48 @@ void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount)
             fprintf(stderr, "설정 파일에 잘못된 목록 유형이 포함되어 있습니다.\n");
             exit(1);
         }
+        /*
+        json_number_value()로 json파일에서 값을 읽어와서 구조체에 저장
+        ->double형태를 반환함->alwaysCheck는 int형태이므로 형변환(int)
+        */
+        rule->alwaysCheck = (int)json_number_value(alwaysCheckObj); 
+        rule->sameRate = json_number_value(sameRateObj);
     }
 
     json_decref(root);     
 }
+//config파일로 수정
+int getInaccessibleFiles(const char *ip, const char *configFile, const char ***inaccessibleFiles) {
+    Rule *rules;
+    int ruleCount;
+    parseConfigFile(configFile, &rules, &ruleCount);
+
+    int fileCount = ruleCount;
+    *inaccessibleFiles = (const char **)malloc(sizeof(const char *) * fileCount);
+    int inaccessibleCount = 0;
+
+    for (int i = 0; i < fileCount; i++) {
+        const char *file = rules[i].path;
+        int accessGranted = 0;
+
+        if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
+            (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
+            accessGranted = 1;
+        }
+
+        if (!accessGranted) {
+            (*inaccessibleFiles)[inaccessibleCount] = file;
+            inaccessibleCount++;
+        }
+    }
+
+    free(rules);
+
+    return inaccessibleCount;
+}
+
+
+
 //config파일로 수정
 int getInaccessibleFiles(const char *ip, const char *configFile, const char ***inaccessibleFiles) {
     Rule *rules;

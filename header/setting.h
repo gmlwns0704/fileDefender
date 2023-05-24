@@ -24,6 +24,8 @@ typedef struct {
     char ip[MAX_IP_LENGTH]; //ip address
     char path[MAX_PATH_LENGTH]; //파일경로
     ListType listType; // 목록 유형 (화이트리스트 또는 블랙리스트)
+    int alwaysCheck; 
+    double sameRate;
 } Rule;
 // IP 주소와 파일 경로를 기반으로 액세스 권한을 확인하는 함수
 int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCount);
