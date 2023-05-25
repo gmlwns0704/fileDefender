@@ -26,10 +26,8 @@ int main() {
     int usersave[5] = {-1, -1, -1, -1, -1};
     //임의로 사용하는 user변수
     int user;
-    int pid = 12212, flag;
-    //파일목록 저장 버퍼
-    char** buffer;
-    char* filename[100];
+    char buff[200];
+    FILE* fp;
 
     struct addrinfo *bind_address;
     getaddrinfo(0, "8080", &hints, &bind_address);
@@ -146,26 +144,26 @@ int main() {
                     printf("client%d : %.*s", now_talking, bytes_received, read);
 
                     char *ptr = strtok(read, "\n");
-                    filename[0] = ptr;
-                    //검색할 파일경로 개수, 파일목록 저장할 버퍼, 파일 경로들 입력
-                    flag = findfile(pid, 1, &buffer, filename);
-                    if(flag > 0)
+                    
+                    char catfile[100];
+                    char en[1] = "\n";
+                    sprintf(catfile, "cat %s\n", read);
+                    printf("client%d request : %s", now_talking, catfile);
+
+                    fp = popen(catfile, "r");
+
+                    if (fp == NULL)
                     {
-                        printf("파일 %d개 검색 완료\n", flag);
-                        for(int j = 0 ; j < flag; j++)
-                        {
-                            int byte = strlen(buffer[j]);
-                            send(i, buffer[j], byte, 0);
-                        }
-                        printf("파일 %d개 전송 완료\n", flag);
+                        perror("erro : ");
                     }
-                    else
+                    while (fgets(buff, 200, fp) != NULL)
                     {
-                        printf("그런 파일은 없습니다.\n");
-                        char notfound[] = "File not found\n";
-                        int byte = strlen(notfound);
-                        send(i, notfound, byte, 0);
+                        send(i, buff, strlen(buff), 0);
                     }
+
+                    send(i, en, 1, 0);
+                    printf("파일 전송 완료\n");
+                    pclose(fp);
                     
                 }         
             } 
