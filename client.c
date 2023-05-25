@@ -72,24 +72,26 @@ int main(int argc, char *argv[]) {
         }
 
         if (FD_ISSET(socket_peer, &reads)) {
-            //서버로 부터 파일 목록 받기
+            //서버로 부터 메세지 받기
             char read[4096];
             int bytes_received = recv(socket_peer, read, 4096, 0);
             if (bytes_received < 1) {
                 printf("Connection closed by peer.\n");
                 break;
             }
+            //서버로 부터 받은 메세지 출력
             printf("%.*s", bytes_received, read);
         }
 
-        //서버로 검색할 파일 경로 전송
+        //서버로 메세지 전송
         if(FD_ISSET(0, &reads)) {
             char read[4096];
+            //메세지 입력 받은 뒤에 send로 전송해줌
             if (!fgets(read, 4096, stdin)) break;
-            printf("File path to find : %s", read);
+            printf("File path : %s", read);
             int bytes_sent = send(socket_peer, read, strlen(read), 0);
         }
-    } 
+    } //end while(1)
 
     printf("Closing socket...\n");
     CLOSESOCKET(socket_peer);
