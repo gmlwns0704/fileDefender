@@ -2,13 +2,34 @@
     {
         "ip": "127.0.0.1",
         "path": "/home/ubuntuhome/save1/getPacket.c",
-        "list_type": "whitelist",
+        "list_type": "blacklist",
         "always_check": 1,
         "same_rate": 0.7
     },
     {
+        "ip": "127.0.0.1",
+        "path": "/home/ubuntuhome/nwProj/project/test/srv",
+        "list_type": "blacklist",
+        "always_check": 0,
+        "same_rate": 0.7
+    },
+    {
+        "ip": "127.0.0.1",
+        "path": "/home/ubuntuhome/save1/tcpkiller.c",
+        "list_type": "whitelist",
+        "always_check": 1,
+        "same_rate": 0.8
+    },
+    {
         "ip": "192.168.219.4",
         "path": "/home/ubuntuhome/save1/tcpkiller.c",
+        "list_type": "whitelist",
+        "always_check": 1,
+        "same_rate": 0.8
+    },
+    {
+        "ip": "192.168.219.4",
+        "path": "/home/ubuntuhome/save1/getPacket.c",
         "list_type": "blacklist",
         "always_check": 1,
         "same_rate": 0.8

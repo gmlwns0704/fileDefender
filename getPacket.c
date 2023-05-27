@@ -256,29 +256,29 @@ void packetCallback(u_char *args, const struct pcap_pkthdr *header, const u_char
     // 접근한 파일이 없음
     if(accessedFilesNum == 0){
         for(int i = 0; i < ruleCount; i++){
+            if(getBan(head, &clInfo))
+                break;
             if(payloadLen > MINPAYLOADLEN &&
             rules[i].alwaysCheck &&
             !checkAccess(inet_ntoa(clInfo.addr), rules[i].path, rules, ruleCount) &&
             isDataInFile(payload, payloadLen, rules[i].path) > payloadLen * rules[i].sameRate){
-                if(!getBan(head, &clInfo)){
-                    setBan(head, &clInfo, 1);
-                    printf("block client %s\n", inet_ntoa(clInfo.addr));
-                    connInfoCommand(t_blockIp, &connInfo);
-                    break;
-                }
-            }
-        }
-    }
-    // 접근이 확인된 파일들에 대해 비교
-    for(int i = 0; i < accessedFilesNum; i++){
-        if(payloadLen > MINPAYLOADLEN &&
-        isDataInFile(payload, payloadLen, accessedFiles[i]) > payloadLen*isAlwaysCheck(inet_ntoa(clInfo.addr), accessedFiles[i], rules, ruleCount)){
-            if(!getBan(head, &clInfo)){
                 setBan(head, &clInfo, 1);
                 printf("block client %s\n", inet_ntoa(clInfo.addr));
                 connInfoCommand(t_blockIp, &connInfo);
                 break;
             }
+        }
+    }
+    // 접근이 확인된 파일들에 대해 비교
+    for(int i = 0; i < accessedFilesNum; i++){
+        if(getBan(head, &clInfo))
+            break;
+        if(payloadLen > MINPAYLOADLEN &&
+        isDataInFile(payload, payloadLen, accessedFiles[i]) > payloadLen*isAlwaysCheck(inet_ntoa(clInfo.addr), accessedFiles[i], rules, ruleCount)){
+            setBan(head, &clInfo, 1);
+            printf("block client %s\n", inet_ntoa(clInfo.addr));
+            connInfoCommand(t_blockIp, &connInfo);
+            break;
         }
     }
 

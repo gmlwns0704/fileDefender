@@ -39,7 +39,6 @@ int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCou
 
 
 //config.jason에 규칙설정
-*/
 double isAlwaysCheck(const char *ip, const char *path, const Rule *rules, int ruleCount) {
     for (int i = 0; i < ruleCount; i++) {
         if (strcmp(rules[i].path, path) == 0) {
@@ -155,13 +154,25 @@ int getInaccessibleFilesV2(const char *ip, const Rule* rules, int ruleCount, con
     *inaccessibleFiles = (const char **)malloc(sizeof(const char *) * fileCount);
     int inaccessibleCount = 0;
 
-    for (int i = 0; i < fileCount; i++) {
+     for (int i = 0; i < fileCount; i++) {
         const char *file = rules[i].path;
         int accessGranted = 0;
 
-        if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
-            (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
-            accessGranted = 1;
+        if (rules[i].listType == WHITELIST) {
+            if (strcmp(rules[i].ip, ip) == 0) {
+                accessGranted = 1;
+            }
+        } else if (rules[i].listType == BLACKLIST) {
+            int ipMatch = 0;
+            for (int j = 0; j < ruleCount; j++) {
+                if (strcmp(rules[j].ip, ip) == 0) {
+                    ipMatch = 1;
+                    break;
+                }
+            }
+            if (!ipMatch) {
+                accessGranted = 1;
+            }
         }
 
         if (!accessGranted) {
