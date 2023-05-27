@@ -34,10 +34,6 @@ double isAlwaysCheck(const char *ip, const char *path, const Rule *rules, int ru
 // 설정 파일을 파싱하여 규칙을 읽어오는 함수
 void parseConfigFile(const char *configFile, Rule **rules, int *ruleCount);
 /*
- 패킷을 처리하는 핸들러 함수
-*/
-// void packetHandler(u_char *userData, const struct pcap_pkthdr *pkthdr, const u_char *packet);
-/*
  ip주소를 입력받아 파일목록 추출
  접근불가 파일목록 반환
 */

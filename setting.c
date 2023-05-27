@@ -5,22 +5,41 @@
 #include <pcap.h>
 #include "header/setting.h"
 
-
 int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCount) {
     for (int i = 0; i < ruleCount; i++) {
         if (strcmp(rules[i].path, path) == 0) {
-            if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
-                (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
-                return 1;  // 액세스 허용
-            } else {
-                return 0;  // 액세스 거부
+            if (rules[i].listType == WHITELIST) {
+                int ipMatch = 0;
+                for (int j = 0; j < ruleCount; j++) {
+                    if (strcmp(rules[j].ip, ip) == 0) {
+                        ipMatch = 1;
+                        break;
+                    }
+                }
+                if (ipMatch) {
+                    return 1;  //접근허용
+                }
+            } else if (rules[i].listType == BLACKLIST) {
+                int ipMatch = 0;
+                for (int j = 0; j < ruleCount; j++) {
+                    if (strcmp(rules[j].ip, ip) == 0) {
+                        ipMatch = 1;
+                        break;
+                    }
+                }
+                if (!ipMatch) {
+                    return 1;  // 접근허용
+                }
             }
+            return 0;  // 접근 거부
         }
     }
     return 1;  // 규칙에 일치하는 항목이 없으면 기본적으로 액세스 허용
 }
-//config.jason에 규칙설정
 
+
+//config.jason에 규칙설정
+*/
 double isAlwaysCheck(const char *ip, const char *path, const Rule *rules, int ruleCount) {
     for (int i = 0; i < ruleCount; i++) {
         if (strcmp(rules[i].path, path) == 0) {
@@ -96,9 +115,21 @@ int getInaccessibleFiles(const char *ip, const char *configFile, const char ***i
         const char *file = rules[i].path;
         int accessGranted = 0;
 
-        if ((rules[i].listType == WHITELIST && strcmp(rules[i].ip, ip) == 0) ||
-            (rules[i].listType == BLACKLIST && strcmp(rules[i].ip, ip) != 0)) {
-            accessGranted = 1;
+        if (rules[i].listType == WHITELIST) {
+            if (strcmp(rules[i].ip, ip) == 0) {
+                accessGranted = 1;
+            }
+        } else if (rules[i].listType == BLACKLIST) {
+            int ipMatch = 0;
+            for (int j = 0; j < ruleCount; j++) {
+                if (strcmp(rules[j].ip, ip) == 0) {
+                    ipMatch = 1;
+                    break;
+                }
+            }
+            if (!ipMatch) {
+                accessGranted = 1;
+            }
         }
 
         if (!accessGranted) {
@@ -111,6 +142,7 @@ int getInaccessibleFiles(const char *ip, const char *configFile, const char ***i
 
     return inaccessibleCount;
 }
+
 
 // 메모리문제 해결
 // rules를 내부에서 정의하지 않고 직접 받아옴
