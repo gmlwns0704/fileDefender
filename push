@@ -1,3 +1,0 @@
-git add *.c tempMains/*.c header/*.h
-git commit -m "auto"
-git push origin ubuntu
