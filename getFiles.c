@@ -14,7 +14,6 @@ int findfile(int pid, int filecount, char*** filelist_buffer, char* path[]){
     //자식 프로세스 pid가져오기
     int pid_cnt = getChildPids(pid, &pids);
     
-    struct procInfo procIn;
     //파일 출력하는 버퍼
     char buff[200];
     //sprintf 임시 버퍼
