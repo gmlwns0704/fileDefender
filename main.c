@@ -4,6 +4,11 @@
 #include "header/setting.h"
 #include "header/tcpkiller.h"
 
+int sigHandle(int isg){
+    endController();
+    exit(0);
+}
+
 int main(int argc, char** argv){
     if(argc == 1 || (argc-1)%2 == 1){
         printf("usage: %s [interfaces, \"filter\"]\n", argv[0]);
@@ -29,6 +34,7 @@ int main(int argc, char** argv){
         wait(pids[i]);
     }
 
+    endController();
     free(pids);
 
     return 0;

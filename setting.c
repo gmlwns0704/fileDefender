@@ -37,11 +37,29 @@ int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCou
     return 1;  // 규칙에 일치하는 항목이 없으면 기본적으로 액세스 허용
 }
 
+int checkAccessV2(const char *ip, const char *path, const Rule *rules, int ruleCount){
+    for (int i = 0; i < ruleCount; i++){
+        if (strcmp(rules[i].path, path) == 0){
+            if(strcmp(rules[i].ip, ip) == 0)
+                return (rules[i].listType == WHITELIST);
+
+            if(rules[i].listType == WHITELIST){
+                for(int j = i+1; j < ruleCount; j++)
+                    if(strcmp(rules[j].path, path) == 0 && strcmp(rules[j].ip, ip) == 0 && rules[j].listType == WHITELIST)
+                        return 1;
+                
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
 
 //config.jason에 규칙설정
 double isAlwaysCheck(const char *ip, const char *path, const Rule *rules, int ruleCount) {
     for (int i = 0; i < ruleCount; i++) {
-        if (strcmp(rules[i].path, path) == 0) {
+        if (strcmp(rules[i].path, path) == 0 && strcmp(rules[i].ip, ip) == 0) {
             // 대상 파일 규칙 찾으면 sameRate 리턴
             return rules[i].sameRate;
         }

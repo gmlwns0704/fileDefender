@@ -29,6 +29,7 @@ typedef struct {
 } Rule;
 // IP 주소와 파일 경로를 기반으로 액세스 권한을 확인하는 함수
 int checkAccess(const char *ip, const char *path, const Rule *rules, int ruleCount);
+int checkAccessV2(const char *ip, const char *path, const Rule *rules, int ruleCount);
 // ip주소와 파일 경로를 기반으로 alwaysCheck값 리턴
 double isAlwaysCheck(const char *ip, const char *path, const Rule *rules, int ruleCount);
 // 설정 파일을 파싱하여 규칙을 읽어오는 함수
